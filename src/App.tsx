@@ -252,6 +252,8 @@ export default function App() {
                   if (d?.active) { wasDrag.current = true; setTimeout(() => { wasDrag.current = false; }, 50); drop(k, e.clientX, e.clientY); }
                 }}
                 onPointerCancel={() => { drag.current = null; setGhost(null); }}
+                // Browser can drop capture without pointerup/cancel (gesture takeover); never leave the ghost hanging.
+                onLostPointerCapture={() => { drag.current = null; setGhost(null); }}
                 onClick={() => {
                   if (wasDrag.current) return; // the click that follows a drag is not a tap
                   setSelKind(k); say(placeHint(k));

@@ -4,6 +4,7 @@ padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bott
 *,*::before,*::after{box-sizing:inherit}
 html{box-sizing:border-box;font-size:20px}html.big{font-size:26px}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Segoe UI",sans-serif;line-height:1.4}
+@media (display-mode:standalone){html{touch-action:pan-x pan-y}}
 main{max-width:980px;margin:0 auto;padding:16px}
 #app{display:flex;flex-direction:column;gap:16px}
 h1{font-size:1.8rem;margin:0}p{margin:0}
