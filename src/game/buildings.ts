@@ -3,10 +3,18 @@ import type { Building, PieceKind, Target } from './types';
 export const KIND_LABEL: Record<PieceKind, string> = {
   log: 'Hirsi', door: 'Ovi', window: 'Ikkuna', roof: 'Katto', chimney: 'Savupiippu', fire: 'Nuotio', pier: 'Laituri', porch: 'Kuisti',
   sill: 'Kengityshirsi', joist: 'Niskahirsi', wall: 'Seinähirsi', tie: 'Sidehirsi', gable: 'Päätyhirsi', purlin: 'Vuoliainen', ridge: 'Kurkihirsi',
+  breaker: 'Sähkökeskus', valve: 'Pääventtiili', cable: 'Kaapeli', pipe: 'Vesiputki', switch: 'Valokatkaisija', light: 'Kattovalo',
+  alarm: 'Palovaroitin', socket: 'Pistorasia', heater: 'Lämminvesivaraaja', sink: 'Tiskiallas', tap: 'Hana',
+  wc: 'WC-istuin', shower: 'Suihku', basin: 'Pesuallas', vent: 'Poistoventtiili', control: 'Ohjauskeskus', lamp: 'Saunavalaisin',
+  kiuas: 'Sähkökiuas', bench: 'Lauteet',
 };
 export const DEFAULT_COLOR: Record<PieceKind, string> = {
   log: '#c98a4b', door: '#8a5a2b', window: '#bfe3f5', roof: '#9a4a32', chimney: '#7a7a72', fire: '#f08a24', pier: '#d9a86a', porch: '#efe6d4',
   sill: '#8f5e30', joist: '#b07a42', wall: '#c98a4b', tie: '#a8692f', gable: '#d49a5a', purlin: '#c07f45', ridge: '#7d4f24',
+  breaker: '#d8d8d0', valve: '#c0392b', cable: '#f4f0e8', pipe: '#b87333', switch: '#f4f0e8', light: '#3f7f4a',
+  alarm: '#f4f0e8', socket: '#f4f0e8', heater: '#e8e8e2', sink: '#e6d3b0', tap: '#9aa3ab',
+  wc: '#f4f0e8', shower: '#9aa3ab', basin: '#f4f0e8', vent: '#f4f0e8', control: '#3a3a38', lamp: '#d9a86a',
+  kiuas: '#4a4a48', bench: '#e2c08a',
 };
 /** Hewing tools, shown above the log not in step order. A step's `wrong` completes "<tool> ei sovi …". */
 export type Tool = 'marauta' | 'piilukirves' | 'kourutaltta' | 'saha';
@@ -23,6 +31,57 @@ export const CARVE_STEPS: { name: string; tool: Tool; hint: string; wrong: strin
   { name: 'Vara', tool: 'kourutaltta', hint: 'Veistä vara hirren alapintaan. Vedä sormella hirren yli tai napauta.', wrong: 'varan veistoon', parts: [0, 1, 2, 3, 4] },
   { name: 'Salvos', tool: 'saha', hint: 'Tee salvokset hirren päihin. Napauta päitä.', wrong: 'salvoksiin', parts: [0, 4] },
 ];
+
+/** Sisätyöt fastening. Each step offers the right item and one or two others (`choices` in rules.ts). */
+export type Material = 'naula' | 'puuruuvi' | 'pitkaruuvi' | 'pultti' | 'kiinnike' | 'kannake' | 'liitin' | 'teippi' | 'liima';
+export const MATERIALS: { id: Material; name: string }[] = [
+  { id: 'teippi', name: 'Teippi' },
+  { id: 'puuruuvi', name: 'Puuruuvi' },
+  { id: 'kannake', name: 'Putkenkannake' },
+  { id: 'naula', name: 'Naula' },
+  { id: 'pultti', name: 'Pultti ja mutteri' },
+  { id: 'kiinnike', name: 'Kaapelikiinnike' },
+  { id: 'liima', name: 'Liima' },
+  { id: 'pitkaruuvi', name: 'Pitkä ruuvi' },
+  { id: 'liitin', name: 'Puristusliitin' },
+];
+export type FixTool = 'vasara' | 'ruuvain' | 'jakoavain' | 'saha' | 'leikkuri';
+export const FIX_TOOLS: { id: FixTool; name: string }[] = [
+  { id: 'jakoavain', name: 'Jakoavain' },
+  { id: 'saha', name: 'Saha' },
+  { id: 'ruuvain', name: 'Akkuruuvinväännin' },
+  { id: 'leikkuri', name: 'Sivuleikkurit' },
+  { id: 'vasara', name: 'Vasara' },
+];
+/**
+ * A fastened piece needs this material, then this tool, then a tap on each spot. Spots are fractions (0-1) of the
+ * piece's box, where the fastener really goes (the ceiling light by its cup, a WC by its foot). `wrong` completes
+ * "<item> ei sovi …". Pieces not listed (the shut-offs) are not fastened.
+ */
+export const FIX: Partial<Record<PieceKind, { material: Material; tool: FixTool; spots: [number, number][]; wrong: string }>> = {
+  cable: { material: 'kiinnike', tool: 'vasara', spots: [[0.2, 0.5], [0.5, 0.5], [0.8, 0.5]], wrong: 'kaapelin kiinnitykseen' },
+  pipe: { material: 'kannake', tool: 'ruuvain', spots: [[0.25, 0.5], [0.75, 0.5]], wrong: 'putken kiinnitykseen' },
+  switch: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.5, 0.4], [0.5, 0.92]], wrong: 'katkaisijan kiinnitykseen' },
+  socket: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.5, 0.4], [0.5, 0.92]], wrong: 'pistorasian kiinnitykseen' },
+  light: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.5, 0.06]], wrong: 'valaisimen kiinnitykseen' },
+  alarm: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.22, 0.5], [0.78, 0.5]], wrong: 'palovaroittimen kiinnitykseen' },
+  heater: { material: 'pultti', tool: 'jakoavain', spots: [[0.5, 0.1], [0.5, 0.9]], wrong: 'varaajan kiinnitykseen' },
+  sink: { material: 'pitkaruuvi', tool: 'ruuvain', spots: [[0.15, 0.45], [0.85, 0.45]], wrong: 'kaapin kiinnitykseen' },
+  tap: { material: 'liitin', tool: 'jakoavain', spots: [[0.75, 0.92]], wrong: 'hanan liitokseen' },
+  wc: { material: 'pitkaruuvi', tool: 'ruuvain', spots: [[0.15, 0.9], [0.85, 0.9]], wrong: 'WC-istuimen kiinnitykseen' },
+  shower: { material: 'liitin', tool: 'jakoavain', spots: [[0.5, 0.82]], wrong: 'suihkun liitokseen' },
+  basin: { material: 'pultti', tool: 'jakoavain', spots: [[0.1, 0.2], [0.9, 0.2]], wrong: 'pesualtaan kiinnitykseen' },
+  vent: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.15, 0.5], [0.85, 0.5]], wrong: 'venttiilin kiinnitykseen' },
+  control: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.5, 0.4], [0.5, 0.92]], wrong: 'ohjauskeskuksen kiinnitykseen' },
+  lamp: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.12, 0.5], [0.88, 0.5]], wrong: 'valaisimen kiinnitykseen' },
+  kiuas: { material: 'pitkaruuvi', tool: 'ruuvain', spots: [[0.2, 0.45], [0.8, 0.45]], wrong: 'kiukaan kiinnitykseen' },
+  bench: { material: 'naula', tool: 'vasara', spots: [[0.15, 0.1], [0.5, 0.1], [0.85, 0.1]], wrong: 'lauteiden kiinnitykseen' },
+};
+/** Sisätyöt shut-offs: already on the wall, tapped (not placed from the tray) before any work. The hint says what to do. */
+export const SHUTOFF: Partial<Record<PieceKind, string>> = {
+  breaker: 'Katkaise ensin virta. Napauta sähkökeskusta.',
+  valve: 'Sulje vesi. Napauta pääventtiiliä.',
+};
 
 /** What a frame piece does; said in Hirsityöt after placing it or when it is tried in the wrong place. */
 export const KIND_INFO: Partial<Record<PieceKind, string>> = {
@@ -158,5 +217,62 @@ export const pirtti: Building = {
   ],
 };
 
-export const BUILDINGS: Building[] = [laavu, sauna, mokki, aitta, talorunko, pirtti];
+// Sisätyöt rooms, seen from inside. Power off (and water closed) first, then the electrics and the plumbing.
+const shutoffs = (water: boolean): Target[] => [
+  { id: 'breaker', kind: 'breaker', name: 'Sähkökeskus', x: 44, y: 40, w: 46, h: 64, after: [] },
+  ...(water ? [{ id: 'valve', kind: 'valve' as const, name: 'Pääventtiili', x: 48, y: 222, w: 40, h: 38, after: ['breaker'] }] : []),
+  { id: 'cable', kind: 'cable', name: 'Kaapeli', x: 90, y: 58, w: 266, h: 14, after: [water ? 'valve' : 'breaker'] },
+  ...(water ? [{ id: 'pipe', kind: 'pipe' as const, name: 'Vesiputki', x: 88, y: 246, w: 226, h: 14, after: ['valve'] }] : []),
+];
+// Keittiö: the sähkökeskus and pääventtiili are on the wall already.
+// Pipe is listed before the sink so the cabinet is drawn over it.
+export const keittio: Building = {
+  id: 'keittio',
+  name: 'Keittiö',
+  mode: 'sisa',
+  targets: [
+    ...shutoffs(true),
+    { id: 'switch', kind: 'switch', name: 'Valokatkaisija', x: 102, y: 72, w: 40, h: 88, after: ['cable'] },
+    { id: 'light', kind: 'light', name: 'Kattovalo', x: 175, y: 72, w: 50, h: 56, after: ['switch'] },
+    { id: 'alarm', kind: 'alarm', name: 'Palovaroitin', x: 240, y: 20, w: 48, h: 26, after: ['cable'] },
+    { id: 'socket', kind: 'socket', name: 'Pistorasia', x: 262, y: 72, w: 40, h: 108, after: ['cable'] },
+    { id: 'heater', kind: 'heater', name: 'Lämminvesivaraaja', x: 308, y: 118, w: 48, h: 130, after: ['pipe'] },
+    { id: 'sink', kind: 'sink', name: 'Tiskiallas', x: 126, y: 190, w: 124, h: 80, after: ['heater'] },
+    { id: 'tap', kind: 'tap', name: 'Hana', x: 168, y: 160, w: 40, h: 30, after: ['sink'] },
+  ],
+};
+
+// Kylpyhuone: tiled, no socket. The washbasin hangs on bolts; the tap goes on it.
+export const kylpyhuone: Building = {
+  id: 'kylpyhuone',
+  name: 'Kylpyhuone',
+  mode: 'sisa',
+  tiles: true,
+  targets: [
+    ...shutoffs(true),
+    { id: 'switch', kind: 'switch', name: 'Valokatkaisija', x: 102, y: 72, w: 40, h: 88, after: ['cable'] },
+    { id: 'light', kind: 'light', name: 'Kattovalo', x: 165, y: 72, w: 50, h: 56, after: ['switch'] },
+    { id: 'vent', kind: 'vent', name: 'Poistoventtiili', x: 250, y: 18, w: 52, h: 28, after: ['cable'] },
+    { id: 'basin', kind: 'basin', name: 'Pesuallas', x: 150, y: 150, w: 80, h: 40, after: ['pipe'] },
+    { id: 'tap', kind: 'tap', name: 'Hana', x: 172, y: 122, w: 40, h: 30, after: ['basin'] },
+    { id: 'wc', kind: 'wc', name: 'WC-istuin', x: 244, y: 186, w: 60, h: 84, after: ['pipe'] },
+    { id: 'shower', kind: 'shower', name: 'Suihku', x: 316, y: 80, w: 40, h: 166, after: ['pipe'] },
+  ],
+};
+
+// Löylyhuone: a sähkökiuas, so no water work. The ohjauskeskus turns on both the kiuas and the light.
+export const loylyhuone: Building = {
+  id: 'loylyhuone',
+  name: 'Löylyhuone',
+  mode: 'sisa',
+  targets: [
+    ...shutoffs(false),
+    { id: 'bench', kind: 'bench', name: 'Lauteet', x: 56, y: 164, w: 196, h: 106, after: ['breaker'] },
+    { id: 'lamp', kind: 'lamp', name: 'Saunavalaisin', x: 100, y: 96, w: 56, h: 32, after: ['cable'] },
+    { id: 'control', kind: 'control', name: 'Ohjauskeskus', x: 196, y: 72, w: 44, h: 80, after: ['cable'] },
+    { id: 'kiuas', kind: 'kiuas', name: 'Sähkökiuas', x: 272, y: 130, w: 72, h: 140, after: ['control'] },
+  ],
+};
+
+export const BUILDINGS: Building[] = [laavu, sauna, mokki, aitta, talorunko, pirtti, keittio, kylpyhuone, loylyhuone];
 export const getBuilding = (id: string): Building | undefined => BUILDINGS.find((b) => b.id === id);

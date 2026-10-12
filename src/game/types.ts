@@ -1,7 +1,10 @@
 export type PieceKind =
   | 'log' | 'door' | 'window' | 'roof' | 'chimney' | 'fire' | 'pier' | 'porch'
   // Hirsityöt (frame) pieces.
-  | 'sill' | 'joist' | 'wall' | 'tie' | 'gable' | 'purlin' | 'ridge';
+  | 'sill' | 'joist' | 'wall' | 'tie' | 'gable' | 'purlin' | 'ridge'
+  // Sisätyöt (room) pieces.
+  | 'breaker' | 'valve' | 'cable' | 'pipe' | 'switch' | 'light' | 'alarm' | 'socket' | 'heater' | 'sink' | 'tap'
+  | 'wc' | 'shower' | 'basin' | 'vent' | 'control' | 'lamp' | 'kiuas' | 'bench';
 export type Phase = 'build' | 'paint' | 'done';
 
 /** A place in a building where one piece belongs. Coordinates are SVG units (viewBox 0 0 400 300). */
@@ -25,10 +28,12 @@ export interface Building {
   id: string;
   name: string;
   targets: Target[];
-  /** 'runko' = Hirsityöt mode: all slots shown, the player works out the order. */
-  mode?: 'runko';
+  /** 'runko' = Hirsityöt mode: all slots shown, the player works out the order. 'sisa' = Sisätyöt: a room, pieces are fastened. */
+  mode?: 'runko' | 'sisa';
   /** Frame stands on corner stones (nurkkakivet) instead of a continuous kivijalka. */
   stones?: boolean;
+  /** Sisätyöt: a tiled wall instead of logs (wet rooms). */
+  tiles?: boolean;
 }
 
 export interface Project {

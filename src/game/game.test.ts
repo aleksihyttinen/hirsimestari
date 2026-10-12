@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CARVE_STEPS, KIND_LABEL, TOOLS, aitta, laavu, mokki, pirtti, sauna, talorunko } from './buildings';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_LABEL, MATERIALS, SHUTOFF, TOOLS, aitta, keittio, kylpyhuone, laavu, loylyhuone, mokki, pirtti, sauna, talorunko } from './buildings';
 import { isDrag } from './gesture';
-import { available, availableKinds, canPlace, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
+import { available, availableKinds, canPlace, choices, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
 import { loadData, newProject, saveData, type Store } from './storage';
 import type { Project } from './types';
 
@@ -48,7 +48,7 @@ describe('other buildings', () => {
       }
       let p = newProject(b.id, 'p');
       for (const _ of b.targets) p = place(b, p, available(b, p)[0]!.id);
-      expect(p.phase).toBe(b.mode === 'runko' ? 'done' : 'paint');
+      expect(p.phase).toBe(b.mode ? 'done' : 'paint');
     }
   });
   it('laavu: logs, roof, fire; mökki: logs, then door and two windows, then porch and roof', () => {
@@ -217,5 +217,49 @@ describe('hirsityöt: pirtti and hewing', () => {
     const q = loadData(store).projects[0]!;
     expect(q.carve).toBe(true);
     expect(q.carved).toEqual(['k1']);
+  });
+});
+
+describe('Sisätyöt', () => {
+  it('keittiö: power off, then water off, then electrics and plumbing; tap last', () => {
+    let p = newProject('keittio', 'k');
+    expect(availableKinds(keittio, p)).toEqual(['breaker']);
+    p = place(keittio, p, 'breaker');
+    expect(availableKinds(keittio, p)).toEqual(['valve']);
+    p = place(keittio, p, 'valve');
+    expect(availableKinds(keittio, p)).toEqual(['cable', 'pipe']);
+    expect(whyNot(keittio, p, 'tap')).toEqual(['Tiskiallas']);
+    expect(whyNot(keittio, p, 'light')).toEqual(['Valokatkaisija']);
+  });
+  it('wet rooms close the water after the power; the löylyhuone has no water work', () => {
+    let p = place(kylpyhuone, newProject('kylpyhuone', 'k'), 'breaker');
+    expect(availableKinds(kylpyhuone, p)).toEqual(['valve']);
+    p = place(kylpyhuone, p, 'valve');
+    expect(availableKinds(kylpyhuone, p)).toEqual(['cable', 'pipe']);
+    expect(whyNot(kylpyhuone, p, 'tap')).toEqual(['Pesuallas']);
+    expect(loylyhuone.targets.some((t) => t.kind === 'valve' || t.kind === 'pipe')).toBe(false);
+    expect(availableKinds(loylyhuone, newProject('loylyhuone', 'l'))).toEqual(['breaker']);
+    expect(whyNot(loylyhuone, place(loylyhuone, newProject('loylyhuone', 'l'), 'breaker'), 'kiuas')).toEqual(['Ohjauskeskus']);
+  });
+  it('every room piece but the shut-offs is fastened, at one to three spots on the piece', () => {
+    for (const b of BUILDINGS.filter((x) => x.mode === 'sisa'))
+      for (const t of b.targets) {
+        const f = FIX[t.kind];
+        expect(!!f, `${b.id}/${t.id}`).toBe(!SHUTOFF[t.kind]);
+        if (!f) continue;
+        expect(MATERIALS.some((m) => m.id === f.material) && FIX_TOOLS.some((x) => x.id === f.tool)).toBe(true);
+        expect(f.spots.length >= 1 && f.spots.length <= 3).toBe(true);
+        for (const [x, y] of f.spots) expect(x >= 0 && x <= 1 && y >= 0 && y <= 1).toBe(true);
+      }
+    expect(FIX.light!.spots.length).toBe(1);
+  });
+  it('offers the right item and two others, each once', () => {
+    const all = MATERIALS.map((m) => m.id);
+    for (let i = 0; i < 50; i++) {
+      const c = choices('pultti', all);
+      expect(c).toContain('pultti');
+      expect(c.length).toBe(3);
+      expect(new Set(c).size).toBe(c.length);
+    }
   });
 });

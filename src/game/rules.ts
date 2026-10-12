@@ -1,8 +1,8 @@
 import { KIND_LABEL } from './buildings';
 import type { Building, Phase, PieceKind, Project, Target } from './types';
 
-/** Phase after the last piece: houses go on to painting, Hirsityöt is woodwork only and is done. */
-export const finished = (b: Building): Phase => (b.mode === 'runko' ? 'done' : 'paint');
+/** Phase after the last piece: houses go on to painting, frames and rooms are done. */
+export const finished = (b: Building): Phase => (b.mode ? 'done' : 'paint');
 
 export const isPlaced = (p: Project, id: string) => p.placed.includes(id);
 
@@ -62,3 +62,17 @@ export function paint(p: Project, targetId: string, color: string | null): Proje
 
 export const unplaced = (b: Building, p: Project, kind: PieceKind) =>
   b.targets.filter((t) => t.kind === kind && !isPlaced(p, t.id)).length;
+
+/** Fisher-Yates shuffle into a new array. */
+export function shuffle<T>(xs: T[], rand = Math.random): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+
+/** Sisätyöt choices: the right item and two others, in random order, so a guess is never a coin flip. */
+export const choices = <T>(right: T, all: T[], rand = Math.random): T[] =>
+  shuffle([right, ...shuffle(all.filter((x) => x !== right), rand).slice(0, 2)], rand);

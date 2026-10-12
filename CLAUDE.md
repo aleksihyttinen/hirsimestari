@@ -21,7 +21,7 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
   - `storage.ts` – load/save; never throws, drops unknown or malformed data
   - `gesture.ts` – tap vs drag threshold
 - `src/Scene.tsx` – SVG drawing only (viewBox `0 0 400 300`). No game rules here.
-- `src/App.tsx` – all screens (home, modes, pick, new, settings, game, carve, help) and interaction.
+- `src/App.tsx` – all screens (home, modes, pick, new, settings, game, carve, fix, help) and interaction.
 
 ## How the game works
 - A `Target` is a slot (`x,y,w,h` in SVG units) with `after: string[]` prerequisites. Only targets whose prerequisites are placed are available, so the build order is data: logs bottom-up, then door and windows, then pier or porch and roof, then chimney or fire.
@@ -30,7 +30,8 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
 - A `Project` is one saved building: `{id, buildingId, placed[], colors{}, phase}`. Several per building are allowed.
 - Hirsityöt (`Building.mode: 'runko'`; small Aitan runko on corner stones `stones: true`, medium Talon runko, large Pirtin runko): frames seen from the gable end, round pieces are log ends. Harder on purpose: every empty slot is shown, the tray offers all remaining kinds sorted by label A–Z, wall logs are their own kind `wall` ("Seinähirsi"), and wrong tries say why (`whyNot`, `KIND_INFO`). Its ? button opens the Rakennusohje guide (real terms). List a frame's two kengityshirret first (the kivijalka is drawn under them).
 - Hirren veisto: when a frame is started the player chooses whether to hew (`Project.carve`). Targets with `carve: true` then open the hewing screen (`CARVE_STEPS`: kuorinta, veisto, vara, salvos) before placing; hewn ids go in `Project.carved`. Each step needs its tool (`TOOLS`, chosen above the log, reset every step); with the wrong tool the cut does not happen and a neutral hint says the tool does not fit (step hints never name the tool).
-- Ohje: every screen has a ? button (home has "? Ohje"). Menu screens show `MENU_HELP`, Rakenna shows `BUILD_HELP`, Hirsityöt and hewing show the Rakennusohje. `helpBack` is the screen to return to and picks the topic.
+- Sisätyöt (`Building.mode: 'sisa'`; Keittiö, Kylpyhuone with `tiles: true`, Löylyhuone with a sähkökiuas and no water): rooms seen from inside, built in house order (only available slots shown). The shut-offs (`SHUTOFF`: sähkökeskus, then pääventtiili in wet rooms) are drawn on the wall from the start, are never in the tray, and are tapped directly; the lever shows I/0, the valve handle lies along or across the pipe. Every other kind is in `FIX` and opens the fastening screen before placing: pick the material, then the tool, then tap each spot. Each step offers the right item and two random others (`choices`), shuffled once per piece. `spots` sit where that fastener really goes (1–3 per piece). A wrong pick says "<x> ei sovi <wrong>" and nothing changes. Fastening is not saved: an undone piece is fastened again. A finished room is `'done'`; switch, tap, shower and ohjauskeskus can be tried (`lit`, `TRY`, not saved; the ohjauskeskus runs the kiuas and the saunavalaisin).
+- Ohje: every screen has a ? button (home has "? Ohje"). Menu screens show `MENU_HELP`, Rakenna shows `BUILD_HELP`, Hirsityöt and hewing show the Rakennusohje, Sisätyöt and fastening the Sisätyöohje (`SISA`). `helpBack` is the screen to return to and picks the topic.
 - Drag: pointer events on the tray buttons; a drop snaps to the nearest available slot of the same kind within 80 SVG units. Tap: select a piece, tap the slot. A click right after a drag is ignored (`wasDrag`).
 
 ## Add a building
@@ -48,6 +49,6 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
 - Playable offline and without localStorage. Do not cache external resources.
 
 ## Known gaps
-- Three houses and three frames. Frame terms and order are unverified by a log builder. Houses: Laavu (side view, lean roof, fire), Sauna (pier to a lake, chimney), Mökki (two windows, entrance porch, chimney). Older saves of a building that gained pieces reopen in build mode. Offline/PWA install has not been verified in a real browser yet.
+- Three houses, three frames and three rooms (Keittiö, Kylpyhuone, Löylyhuone). Fastening pairings and the sähkökeskus inside each room are unverified by an electrician or plumber. Frame terms and order are unverified by a log builder. Houses: Laavu (side view, lean roof, fire), Sauna (pier to a lake, chimney), Mökki (two windows, entrance porch, chimney). Older saves of a building that gained pieces reopen in build mode. Offline/PWA install has not been verified in a real browser yet.
 - Reviewed against Papunet's kognitiivinen saavutettavuus guide and switch-control notes; not yet tested with real users or switch hardware.
 - Not tested on real touch devices or screen readers.

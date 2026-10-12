@@ -2,6 +2,10 @@
 
 Rauhallinen rakennuspeli: rakenna hirsirakennus palasista ja maalaa se. Suomenkielinen, ei tasoja, ei aikarajoja.
 
+**Pelaa:** [hirsimestari.leksi.dev](https://hirsimestari.leksi.dev)
+
+> **About this project:** Hirsimestari is written entirely by AI. All the code, tests and documentation were produced by a coding agent ([Claude Code](https://claude.com/claude-code)), with me directing, reviewing and testing. I built it for my own interest, as a way to study agentic coding, and it is part of my AI engineering portfolio.
+
 ## Ajaminen
 
 ```bash
@@ -17,11 +21,12 @@ npm run preview    # kokeile tuotantoversiota (PWA ja offline toimivat vain täs
 
 - `src/game/` – säännöt ja data ilman Reactia: `rules.ts` (sijoitus, tarttuminen, peruminen, maalaus), `buildings.ts` (rakennukset dataa), `storage.ts` (localStorage), `gesture.ts` (napautus vai veto).
 - `src/Scene.tsx` – SVG-piirto (viewBox 400×300), erillään säännöistä.
-- `src/App.tsx` – näkymät: alkuvalikko, pelitavan valinta, omat rakennukset, uusi rakennus, asetukset, peli, veisto, ohje.
+- `src/App.tsx` – näkymät: alkuvalikko, pelitavan valinta, omat rakennukset, uusi rakennus, asetukset, peli, veisto, kiinnitys, ohje.
 
 ## Päätökset
 
-- Kaksi pelitapaa: Rakenna (talot) ja Hirsityöt (hirsirungot, joissa järjestys pitää päätellä itse; erikoishirret voi halutessaan veistää; runkoja ei maalata).
+- Kolme pelitapaa: Rakenna (talot), Hirsityöt (hirsirungot, joissa järjestys pitää päätellä itse; erikoishirret voi halutessaan veistää; runkoja ei maalata) ja Sisätyöt (huoneen sähkö- ja vesityöt).
+- Sisätyöt: Keittiö, Kylpyhuone ja Löylyhuone (sähkökiuas). Ensin katkaistaan virta ja suljetaan vesi napauttamalla sähkökeskusta ja pääventtiiliä. Jokainen osa kiinnitetään: valitse oikea kiinnike ja työkalu kolmesta vaihtoehdosta (järjestys vaihtuu), ja napauta kiinnityskohdat. Valmiissa huoneessa voi kokeilla valoa, vettä ja kiuasta.
 - Jokaisessa näkymässä on ?-nappi, joka avaa siihen sopivan ohjeen.
 - Rakennukset: Laavu (helpoin: hirret, katto, nuotio), Sauna (laituri järvelle, savupiippu) ja Mökki (kaksi ikkunaa, kuisti, savupiippu).
 - Asetuksissa voi laittaa päälle puheen, joka lukee ohjeen ääneen (Papunetin äänituen tapaan).
