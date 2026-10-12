@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CARVE_STEPS, TOOLS, aitta, laavu, mokki, pirtti, sauna, talorunko } from './buildings';
+import { BUILDINGS, CARVE_STEPS, KIND_LABEL, TOOLS, aitta, laavu, mokki, pirtti, sauna, talorunko } from './buildings';
 import { isDrag } from './gesture';
 import { available, availableKinds, canPlace, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
 import { loadData, newProject, saveData, type Store } from './storage';
@@ -174,13 +174,13 @@ describe('hirsityöt: aitan runko', () => {
     for (const id of ['g1', 'v1', 'v2', 'ridge']) p = place(aitta, p, id);
     expect(p.phase).toBe('done'); // woodwork only, no painting
   });
-  it('names what is missing and offers every remaining kind, not in build order', () => {
+  it('names what is missing and offers every remaining kind alphabetically', () => {
     const p = place(aitta, newProject('aitta', 'a1'), 'k1');
     expect(whyNot(aitta, p, 'n1')).toEqual(['Kengityshirsi 2']);
     expect(whyNot(aitta, p, 'k2')).toEqual([]);
     const kinds = remainingKinds(aitta, p);
     expect(kinds).toHaveLength(7);
-    expect(kinds[0]).not.toBe('sill');
+    expect(kinds.map((k) => KIND_LABEL[k])).toEqual(['Kengityshirsi', 'Kurkihirsi', 'Niskahirsi', 'Päätyhirsi', 'Seinähirsi', 'Sidehirsi', 'Vuoliainen']);
   });
 });
 
@@ -191,6 +191,8 @@ describe('hirsityöt: pirtti and hewing', () => {
     for (const b of frames) {
       // Scene draws the kivijalka under the first two targets.
       expect(b.targets.slice(0, 2).map((t) => t.kind), b.id).toEqual(['sill', 'sill']);
+      // The tray names every frame piece; wall logs must not hide behind the house label "Hirsi".
+      expect(remainingKinds(b, newProject(b.id)).map((k) => KIND_LABEL[k]), b.id).toContain('Seinähirsi');
       let p = newProject(b.id, 'r1');
       for (let i = 0; i < b.targets.length; i++) p = place(b, p, available(b, p)[0]!.id);
       expect(p.phase).toBe('done');

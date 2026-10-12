@@ -1,7 +1,7 @@
 export type PieceKind =
   | 'log' | 'door' | 'window' | 'roof' | 'chimney' | 'fire' | 'pier' | 'porch'
   // Hirsityöt (frame) pieces.
-  | 'sill' | 'joist' | 'tie' | 'gable' | 'purlin' | 'ridge';
+  | 'sill' | 'joist' | 'wall' | 'tie' | 'gable' | 'purlin' | 'ridge';
 export type Phase = 'build' | 'paint' | 'done';
 
 /** A place in a building where one piece belongs. Coordinates are SVG units (viewBox 0 0 400 300). */

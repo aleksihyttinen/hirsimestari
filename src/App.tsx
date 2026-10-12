@@ -149,8 +149,11 @@ export default function App() {
     if (!building || !project) return;
     if (!canPlace(building, project, id, kind)) {
       const t = building.targets.find((x) => x.id === id);
+      // Lowest wall log still missing: a wall log tried higher up gets told to start from the bottom.
+      const low = building.targets.find((x) => x.kind === 'wall' && !isPlaced(project, x.id));
       if (building.mode !== 'runko' || !t) say('Tässä ei ole oikea paikka. Aseta pala kohtaan, jossa on ＋.');
       else if (t.kind !== kind) say(`Tähän ei tule ${KIND_LABEL[kind].toLowerCase()}. ${KIND_INFO[kind] ?? ''}`);
+      else if (t.kind === 'wall' && low && low.id !== t.id) say(`Seinä rakennetaan alhaalta ylös, yksi hirsi kerrallaan. ${building.targets.some((x) => x.kind === 'wall' && isPlaced(project, x.id)) ? 'Aseta seuraavaksi' : 'Aloita alimmasta'}: ${low.name}.`);
       else say(`Ensin tarvitaan: ${whyNot(building, project, id).join(', ')}.`);
       return;
     }

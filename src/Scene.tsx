@@ -7,7 +7,7 @@ import type { Building, PieceKind, Project, Target } from './game/types';
 const ST = { stroke: '#5a3a1c', strokeWidth: 2.5, strokeLinejoin: 'round' as const };
 type Box = Pick<Target, 'kind' | 'x' | 'y' | 'w' | 'h' | 'lean'>;
 /** Logs seen from the side (long bars) and end-on (round, frame pieces running lengthwise). */
-const BAR = new Set<PieceKind>(['log', 'tie', 'gable']);
+const BAR = new Set<PieceKind>(['log', 'wall', 'tie', 'gable']);
 const ROUND = new Set<PieceKind>(['sill', 'joist', 'purlin', 'ridge']);
 
 // A lean roof is a 20-unit thick slab rising from bottom-left to top-right.
@@ -236,6 +236,7 @@ export function Scene({ building, project, selKind = null, thumb = false, svgRef
 
 const ICON: Record<PieceKind, Box> = {
   log: { kind: 'log', x: 4, y: 15, w: 82, h: 26 },
+  wall: { kind: 'wall', x: 4, y: 15, w: 82, h: 26 },
   roof: { kind: 'roof', x: 4, y: 4, w: 82, h: 48 },
   door: { kind: 'door', x: 30, y: 4, w: 30, h: 48 },
   window: { kind: 'window', x: 20, y: 8, w: 50, h: 40 },

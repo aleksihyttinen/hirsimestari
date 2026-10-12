@@ -2,11 +2,11 @@ import type { Building, PieceKind, Target } from './types';
 
 export const KIND_LABEL: Record<PieceKind, string> = {
   log: 'Hirsi', door: 'Ovi', window: 'Ikkuna', roof: 'Katto', chimney: 'Savupiippu', fire: 'Nuotio', pier: 'Laituri', porch: 'Kuisti',
-  sill: 'Kengityshirsi', joist: 'Niskahirsi', tie: 'Sidehirsi', gable: 'Päätyhirsi', purlin: 'Vuoliainen', ridge: 'Kurkihirsi',
+  sill: 'Kengityshirsi', joist: 'Niskahirsi', wall: 'Seinähirsi', tie: 'Sidehirsi', gable: 'Päätyhirsi', purlin: 'Vuoliainen', ridge: 'Kurkihirsi',
 };
 export const DEFAULT_COLOR: Record<PieceKind, string> = {
   log: '#c98a4b', door: '#8a5a2b', window: '#bfe3f5', roof: '#9a4a32', chimney: '#7a7a72', fire: '#f08a24', pier: '#d9a86a', porch: '#efe6d4',
-  sill: '#8f5e30', joist: '#b07a42', tie: '#a8692f', gable: '#d49a5a', purlin: '#c07f45', ridge: '#7d4f24',
+  sill: '#8f5e30', joist: '#b07a42', wall: '#c98a4b', tie: '#a8692f', gable: '#d49a5a', purlin: '#c07f45', ridge: '#7d4f24',
 };
 /** Hewing tools, shown above the log not in step order. A step's `wrong` completes "<tool> ei sovi …". */
 export type Tool = 'marauta' | 'piilukirves' | 'kourutaltta' | 'saha';
@@ -28,7 +28,7 @@ export const CARVE_STEPS: { name: string; tool: Tool; hint: string; wrong: strin
 export const KIND_INFO: Partial<Record<PieceKind, string>> = {
   sill: 'Kengityshirsi on alin hirsi. Se kantaa koko seinän.',
   joist: 'Niskahirsi kantaa lattian.',
-  log: 'Seinä rakennetaan alhaalta ylös.',
+  wall: 'Seinä rakennetaan alhaalta ylös.',
   tie: 'Sidehirsi sitoo seinät yhteen.',
   gable: 'Päätyhirret tekevät kolmion katon alle.',
   purlin: 'Vuoliainen tukee kattoa sivulta.',
@@ -103,7 +103,7 @@ export const aitta: Building = {
     { id: 'k1', kind: 'sill', name: 'Kengityshirsi 1', x: 104, y: 204, w: 32, h: 32, after: [], carve: true },
     { id: 'k2', kind: 'sill', name: 'Kengityshirsi 2', x: 264, y: 204, w: 32, h: 32, after: [], carve: true },
     { id: 'n1', kind: 'joist', name: 'Niskahirsi', x: 186, y: 206, w: 28, h: 28, after: ['k1', 'k2'] },
-    ...logs(4, 100, 200, 24).map((t, i) => ({ ...t, name: `Seinähirsi ${i + 1}`, y: 180 - 24 * i, after: i ? t.after : ['n1'] })),
+    ...logs(4, 100, 200, 24).map((t, i) => ({ ...t, kind: 'wall' as const, name: `Seinähirsi ${i + 1}`, y: 180 - 24 * i, after: i ? t.after : ['n1'] })),
     { id: 'tie', kind: 'tie', name: 'Sidehirsi', x: 84, y: 84, w: 232, h: 24, after: ['l3'], carve: true },
     { id: 'g0', kind: 'gable', name: 'Päätyhirsi 1', x: 128, y: 62, w: 144, h: 22, after: ['tie'] },
     { id: 'g1', kind: 'gable', name: 'Päätyhirsi 2', x: 162, y: 40, w: 76, h: 22, after: ['g0'] },
@@ -122,7 +122,7 @@ export const talorunko: Building = {
     { id: 'k1', kind: 'sill', name: 'Kengityshirsi 1', x: 64, y: 216, w: 36, h: 36, after: [], carve: true },
     { id: 'k2', kind: 'sill', name: 'Kengityshirsi 2', x: 300, y: 216, w: 36, h: 36, after: [], carve: true },
     ...[130, 185, 240].map((x, i) => ({ id: `n${i}`, kind: 'joist' as const, name: `Niskahirsi ${i + 1}`, x, y: 222, w: 30, h: 30, after: ['k1', 'k2'] })),
-    ...logs(3, 60, 280, 28).map((t, i) => ({ ...t, name: `Seinähirsi ${i + 1}`, y: 188 - 28 * i, after: i ? t.after : ['n0', 'n1', 'n2'] })),
+    ...logs(3, 60, 280, 28).map((t, i) => ({ ...t, kind: 'wall' as const, name: `Seinähirsi ${i + 1}`, y: 188 - 28 * i, after: i ? t.after : ['n0', 'n1', 'n2'] })),
     { id: 'tie', kind: 'tie', name: 'Sidehirsi', x: 40, y: 106, w: 320, h: 26, after: ['l2'], carve: true },
     { id: 'g0', kind: 'gable', name: 'Päätyhirsi 1', x: 90, y: 86, w: 220, h: 20, after: ['tie'] },
     { id: 'g1', kind: 'gable', name: 'Päätyhirsi 2', x: 150, y: 66, w: 100, h: 20, after: ['g0'] },
@@ -143,7 +143,7 @@ export const pirtti: Building = {
     { id: 'k1', kind: 'sill', name: 'Kengityshirsi 1', x: 52, y: 216, w: 36, h: 36, after: [], carve: true },
     { id: 'k2', kind: 'sill', name: 'Kengityshirsi 2', x: 312, y: 216, w: 36, h: 36, after: [], carve: true },
     ...[104, 158, 214, 268].map((x, i) => ({ id: `n${i}`, kind: 'joist' as const, name: `Niskahirsi ${i + 1}`, x, y: 226, w: 26, h: 26, after: ['k1', 'k2'] })),
-    ...logs(5, 48, 304, 20).map((t, i) => ({ ...t, name: `Seinähirsi ${i + 1}`, y: 196 - 20 * i, after: i ? t.after : ['n0', 'n1', 'n2', 'n3'] })),
+    ...logs(5, 48, 304, 20).map((t, i) => ({ ...t, kind: 'wall' as const, name: `Seinähirsi ${i + 1}`, y: 196 - 20 * i, after: i ? t.after : ['n0', 'n1', 'n2', 'n3'] })),
     { id: 'tie', kind: 'tie', name: 'Sidehirsi', x: 40, y: 94, w: 320, h: 22, after: ['l4'], carve: true },
     { id: 'g0', kind: 'gable', name: 'Päätyhirsi 1', x: 80, y: 74, w: 240, h: 20, after: ['tie'] },
     { id: 'g1', kind: 'gable', name: 'Päätyhirsi 2', x: 120, y: 54, w: 160, h: 20, after: ['g0'] },
