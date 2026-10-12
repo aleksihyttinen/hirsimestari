@@ -35,3 +35,5 @@ button.main{background:var(--accent);color:var(--onacc);border-color:var(--accen
 .slot{cursor:pointer}
 .ghost{position:fixed;pointer-events:none;z-index:9;padding:10px 18px;background:#c98a4b;border:3px solid #5a3a1c;border-radius:14px;color:#2b2118;font-weight:700;transform:translate(-50%,-50%)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.help{margin:0;padding-left:1.6em;display:flex;flex-direction:column;gap:10px;font-size:1.1rem;line-height:1.4}
+h2{font-size:1.4rem;margin:0}

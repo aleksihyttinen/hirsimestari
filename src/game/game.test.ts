@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, laavu, mokki, sauna } from './buildings';
+import { BUILDINGS, CARVE_STEPS, TOOLS, aitta, laavu, mokki, pirtti, sauna, talorunko } from './buildings';
 import { isDrag } from './gesture';
-import { available, availableKinds, canPlace, nearestTarget, paint, place, undo } from './rules';
+import { available, availableKinds, canPlace, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
 import { loadData, newProject, saveData, type Store } from './storage';
 import type { Project } from './types';
 
@@ -48,7 +48,7 @@ describe('other buildings', () => {
       }
       let p = newProject(b.id, 'p');
       for (const _ of b.targets) p = place(b, p, available(b, p)[0]!.id);
-      expect(p.phase).toBe('paint');
+      expect(p.phase).toBe(b.mode === 'runko' ? 'done' : 'paint');
     }
   });
   it('laavu: logs, roof, fire; mökki: logs, then door and two windows, then porch and roof', () => {
@@ -142,6 +142,11 @@ describe('saving', () => {
     expect(p.phase).toBe('build');
     expect(availableKinds(sauna, p)).toEqual(['pier', 'chimney']);
   });
+  it('goes on to painting when every piece is placed but the save says build', () => {
+    const store = fakeStore();
+    store.setItem('hirsimestari-v1', JSON.stringify({ projects: [{ ...build(fresh(), 10), phase: 'build' }] }));
+    expect(loadData(store).projects[0]?.phase).toBe('paint');
+  });
   it('does not throw without storage or when writing fails', () => {
     expect(loadData(null).projects).toEqual([]);
     const broken: Store = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('full'); } };
@@ -154,5 +159,61 @@ describe('tap vs drag', () => {
   it('treats small movement as a tap and larger movement as a drag', () => {
     expect(isDrag(2, 3)).toBe(false);
     expect(isDrag(30, 0)).toBe(true);
+  });
+});
+
+describe('hirsityöt: aitan runko', () => {
+  it('builds bottom-up: sills, joists, walls, tie, gable, then purlins and ridge', () => {
+    let p = newProject('aitta', 'a1');
+    expect(availableKinds(aitta, p)).toEqual(['sill']);
+    for (const id of ['k1', 'k2']) p = place(aitta, p, id);
+    expect(availableKinds(aitta, p)).toEqual(['joist']);
+    for (const id of ['n1', 'l0', 'l1', 'l2', 'l3', 'tie', 'g0']) p = place(aitta, p, id);
+    expect(availableKinds(aitta, p)).toEqual(['gable', 'purlin']);
+    expect(canPlace(aitta, p, 'ridge', 'ridge')).toBe(false);
+    for (const id of ['g1', 'v1', 'v2', 'ridge']) p = place(aitta, p, id);
+    expect(p.phase).toBe('done'); // woodwork only, no painting
+  });
+  it('names what is missing and offers every remaining kind, not in build order', () => {
+    const p = place(aitta, newProject('aitta', 'a1'), 'k1');
+    expect(whyNot(aitta, p, 'n1')).toEqual(['Kengityshirsi 2']);
+    expect(whyNot(aitta, p, 'k2')).toEqual([]);
+    const kinds = remainingKinds(aitta, p);
+    expect(kinds).toHaveLength(7);
+    expect(kinds[0]).not.toBe('sill');
+  });
+});
+
+describe('hirsityöt: pirtti and hewing', () => {
+  it('frames are small, medium and large and can each be finished without painting', () => {
+    const frames = [aitta, talorunko, pirtti];
+    expect(frames.map((b) => b.targets.length)).toEqual([13, 16, 22]);
+    for (const b of frames) {
+      // Scene draws the kivijalka under the first two targets.
+      expect(b.targets.slice(0, 2).map((t) => t.kind), b.id).toEqual(['sill', 'sill']);
+      let p = newProject(b.id, 'r1');
+      for (let i = 0; i < b.targets.length; i++) p = place(b, p, available(b, p)[0]!.id);
+      expect(p.phase).toBe('done');
+    }
+  });
+  it('asks for hewing only when chosen, only for special logs, and only once', () => {
+    const p = newProject('aitta', 'a1');
+    expect(needsCarve(aitta, p, 'k1')).toBe(false);
+    const c = { ...p, carve: true };
+    expect(needsCarve(aitta, c, 'k1')).toBe(true);
+    expect(needsCarve(aitta, c, 'n1')).toBe(false);
+    expect(needsCarve(aitta, { ...c, carved: ['k1'] }, 'k1')).toBe(false);
+  });
+  it('every hewing step needs its own tool, and every tool is offered', () => {
+    expect(new Set(CARVE_STEPS.map((s) => s.tool)).size).toBe(CARVE_STEPS.length);
+    expect(TOOLS.map((t) => t.id).sort()).toEqual(CARVE_STEPS.map((s) => s.tool).sort());
+  });
+  it('saves the hewing choice and drops unknown hewn ids', () => {
+    const store = fakeStore();
+    const p = { ...newProject('aitta', 'a1'), carve: true, carved: ['k1', 'zz', 5] } as unknown as Project;
+    saveData(store, { projects: [p], keep: [], settings: { sound: false, big: false, speech: false } });
+    const q = loadData(store).projects[0]!;
+    expect(q.carve).toBe(true);
+    expect(q.carved).toEqual(['k1']);
   });
 });

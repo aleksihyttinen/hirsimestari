@@ -1,4 +1,5 @@
 import { getBuilding } from './buildings';
+import { finished } from './rules';
 import type { Project, SaveData } from './types';
 
 export type Store = Pick<Storage, 'getItem' | 'setItem'>;
@@ -20,8 +21,13 @@ function cleanProject(v: unknown): Project | null {
   const placed = [...new Set(v.placed.filter((x): x is string => typeof x === 'string' && ids.has(x)))];
   const colors: Record<string, string> = {};
   for (const [k, c] of Object.entries(v.colors)) if (ids.has(k) && typeof c === 'string') colors[k] = c;
-  // A building that gained pieces since it was saved goes back to building instead of being stuck unfinished.
-  return { id: v.id, buildingId: v.buildingId, placed, colors, phase: placed.length < b.targets.length ? 'build' : v.phase };
+  const carved = Array.isArray(v.carved) ? v.carved.filter((x): x is string => typeof x === 'string' && ids.has(x)) : [];
+  return {
+    id: v.id, buildingId: v.buildingId, placed, colors,
+    // A building that gained pieces goes back to building; one that lost them is not left with an empty tray.
+    phase: placed.length < b.targets.length ? 'build' : v.phase === 'build' ? finished(b) : v.phase,
+    ...(v.carve === true && { carve: true }), ...(carved.length && { carved }),
+  };
 }
 
 /** Never throws: missing, malformed or unavailable storage gives an empty save. */
