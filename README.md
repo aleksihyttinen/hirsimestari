@@ -4,7 +4,9 @@ Rauhallinen rakennuspeli: rakenna hirsirakennus palasista ja maalaa se. Suomenki
 
 **Pelaa:** [hirsimestari.leksi.dev](https://hirsimestari.leksi.dev)
 
-> **About this project:** Hirsimestari is written entirely by AI. All the code, tests and documentation were produced by a coding agent ([Claude Code](https://claude.com/claude-code)), with me directing, reviewing and testing. I built it for my own interest, as a way to study agentic coding, and it is part of my AI engineering portfolio.
+> **About this project:** Hirsimestari was made for real use. My mother works at a group home for disabled people (vammaisten asumisyksikkö). One of the residents asked what I do for work, and then asked whether I could make him a construction game to play on his iPad. This is that game.
+>
+> It is written entirely by AI. All the code, tests and documentation were produced by a coding agent ([Claude Code](https://claude.com/claude-code)), with me directing, reviewing and testing. Building it was also my way to study agentic coding.
 
 ## Ajaminen
 
