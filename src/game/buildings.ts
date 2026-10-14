@@ -1,4 +1,4 @@
-import type { Building, PieceKind, Target } from './types';
+import type { Building, Item, PieceKind, Recipe, RoomKind, Target } from './types';
 
 export const KIND_LABEL: Record<PieceKind, string> = {
   log: 'Hirsi', door: 'Ovi', window: 'Ikkuna', roof: 'Katto', chimney: 'Savupiippu', fire: 'Nuotio', pier: 'Laituri', porch: 'Kuisti',
@@ -132,7 +132,7 @@ export const laavu: Building = {
 // Chimney comes before the roof in the list so the roof is drawn over its base.
 export const sauna: Building = {
   id: 'sauna',
-  name: 'Sauna',
+  name: 'Rantasauna',
   targets: [
     ...logs(5, 120, 200),
     { id: 'door', kind: 'door', name: 'Ovi', x: 250, y: 180, w: 34, h: 90, after: ['l4'] },
@@ -179,10 +179,10 @@ export const aitta: Building = {
   ],
 };
 
-// Talon runko: low and wide, three wall logs, a gentle gable and vuoliaiset out at the eaves.
+// Mökin runko: low and wide, three wall logs, a gentle gable and vuoliaiset out at the eaves.
 export const talorunko: Building = {
   id: 'talorunko',
-  name: 'Talon runko',
+  name: 'Mökin runko',
   mode: 'runko',
   targets: [
     { id: 'k1', kind: 'sill', name: 'Kengityshirsi 1', x: 64, y: 216, w: 36, h: 36, after: [], carve: true },
@@ -200,10 +200,10 @@ export const talorunko: Building = {
   ],
 };
 
-// Pirtin runko: the big one, wide and tall with a three-log gable and three pairs of vuoliaiset.
+// Omakotitalon runko: the big one, wide and tall with a three-log gable and three pairs of vuoliaiset.
 export const pirtti: Building = {
   id: 'pirtti',
-  name: 'Pirtin runko',
+  name: 'Omakotitalon runko',
   mode: 'runko',
   targets: [
     { id: 'k1', kind: 'sill', name: 'Kengityshirsi 1', x: 52, y: 216, w: 36, h: 36, after: [], carve: true },
@@ -276,10 +276,10 @@ export const kylpyhuone: Building = {
   ]),
 };
 
-// Löylyhuone: a sähkökiuas, so no water work. The ohjauskeskus turns on both the kiuas and the light.
+// Sauna (id loylyhuone, the room inside): a sähkökiuas, so no water work. The ohjauskeskus turns on both the kiuas and the light.
 export const loylyhuone: Building = {
   id: 'loylyhuone',
-  name: 'Löylyhuone',
+  name: 'Sauna',
   mode: 'sisa',
   targets: room(false, [
     { id: 'bench', kind: 'bench', name: 'Lauteet', x: 56, y: 164, w: 196, h: 106, after: ['breaker'] },
@@ -289,5 +289,134 @@ export const loylyhuone: Building = {
   ]),
 };
 
-export const BUILDINGS: Building[] = [laavu, sauna, mokki, aitta, talorunko, pirtti, keittio, kylpyhuone, loylyhuone];
+// Sisusta: furniture and fixtures, with their size in grid cells before turning.
+export const ITEM_LABEL: Record<Item, string> = {
+  bed: 'Sänky', nightstand: 'Yöpöytä', sofa: 'Sohva', tv: 'Televisio', table: 'Pöytä', chair: 'Tuoli', coats: 'Naulakko', shoes: 'Kenkähylly',
+  coffee: 'Sohvapöytä', armchair: 'Nojatuoli', wardrobe: 'Vaatekaappi', dresser: 'Lipasto', plant: 'Viherkasvi',
+  bench: 'Penkki', longtable: 'Pirtinpöytä', platform: 'Lauteet', bucket: 'Kiulu',
+  stove: 'Liesi', sink: 'Tiskiallas', shower: 'Suihku', toilet: 'WC-istuin', basin: 'Pesuallas', heater: 'Kiuas', kettle: 'Vesipata',
+};
+export const ITEM_SIZE: Record<Item, [number, number]> = {
+  bed: [1, 2], nightstand: [1, 1], sofa: [3, 1], tv: [2, 1], table: [2, 1], chair: [1, 1], coats: [1, 1], shoes: [1, 1],
+  coffee: [2, 1], armchair: [1, 1], wardrobe: [2, 1], dresser: [1, 1], plant: [1, 1],
+  bench: [2, 1], longtable: [2, 1], platform: [2, 1], bucket: [1, 1],
+  stove: [1, 1], sink: [1, 1], shower: [1, 1], toilet: [1, 1], basin: [1, 1], heater: [1, 1], kettle: [1, 1],
+};
+export const ROOM_LABEL: Record<RoomKind, string> = {
+  bedroom: 'Makuuhuone', kitchen: 'Keittiö', living: 'Olohuone', hall: 'Eteinen', dressing: 'Pukuhuone', sauna: 'Löylyhuone',
+};
+const SAUNA: Recipe = { room: 'sauna', items: ['heater', 'platform', 'bucket'], text: 'Lauteet ja kiulu siihen huoneeseen, jossa on kiuas.' };
+
+// Pihasauna, 5×4 cells: a sauna building of its own. A dressing room with the outside door, and the löylyhuone with
+// its kiuas and the vesipata beside it.
+export const pihasauna: Building = {
+  id: 'pihasauna',
+  name: 'Pihasauna',
+  mode: 'pohja',
+  targets: [],
+  plan: {
+    cols: 5,
+    rows: 4,
+    rooms: [
+      { id: 'a', name: 'Huone, jossa on ulko-ovi', x: 0, y: 0, w: 3, h: 4, entry: true },
+      { id: 'c', name: 'Huone, jossa on kiuas', x: 3, y: 0, w: 2, h: 4 },
+    ],
+    doors: [{ x: 1, y: 4, side: 'top' }, { x: 3, y: 1, side: 'left' }],
+    windows: [{ x: 1, y: 0, side: 'top' }, { x: 0, y: 2, side: 'left' }, { x: 5, y: 2, side: 'left' }],
+    fixed: [
+      { id: 'kettle', item: 'kettle', x: 3, y: 0, turn: 0 },
+      { id: 'heater', item: 'heater', x: 4, y: 0, turn: 0 },
+    ],
+    // The rooms need bench, coats, platform and bucket; a table, chairs and a plant are free extras.
+    pieces: { bench: 1, coats: 1, platform: 1, bucket: 1, table: 1, chair: 2, plant: 1 },
+    goal: ['dressing', 'sauna'],
+    recipes: [{ room: 'dressing', items: ['coats', 'bench'], entry: true, text: 'Penkki ja naulakko siihen huoneeseen, jossa on ulko-ovi.' }, SAUNA],
+  },
+};
+
+// Mökki, 8×6 cells: a bedroom, one big open room that is both kitchen and living room (a pirtinpöytä with two benches), and a sauna (a washroom, ready
+// from the start, and the löylyhuone).
+export const mokkipohja: Building = {
+  id: 'mokkipohja',
+  name: 'Mökki',
+  mode: 'pohja',
+  targets: [],
+  plan: {
+    cols: 8,
+    rows: 6,
+    rooms: [
+      { id: 'a', name: 'Pieni huone', x: 0, y: 0, w: 3, h: 3 },
+      { id: 'c', name: 'Pesuhuone', x: 0, y: 3, w: 3, h: 1 },
+      { id: 'd', name: 'Huone, jossa on kiuas', x: 0, y: 4, w: 3, h: 2 },
+      { id: 'b', name: 'Iso huone, jossa on liesi ja ulko-ovi', x: 3, y: 0, w: 5, h: 6, open: true },
+    ],
+    doors: [{ x: 5, y: 6, side: 'top' }, { x: 3, y: 1, side: 'left' }, { x: 3, y: 3, side: 'left' }, { x: 1, y: 4, side: 'top' }],
+    windows: [
+      { x: 1, y: 0, side: 'top' }, { x: 0, y: 1, side: 'left' }, { x: 0, y: 5, side: 'left' }, { x: 4, y: 0, side: 'top' },
+      { x: 8, y: 2, side: 'left' }, { x: 8, y: 4, side: 'left' }, { x: 7, y: 6, side: 'top' },
+    ],
+    fixed: [
+      { id: 'stove', item: 'stove', x: 6, y: 0, turn: 0 },
+      { id: 'sink', item: 'sink', x: 7, y: 0, turn: 0 },
+      { id: 'shower', item: 'shower', x: 0, y: 3, turn: 0 },
+      { id: 'heater', item: 'heater', x: 0, y: 4, turn: 0 },
+    ],
+    // The rooms need the first eight kinds; a wardrobe, a coat rack and a plant are free extras.
+    pieces: { bed: 1, nightstand: 1, longtable: 1, bench: 2, sofa: 1, armchair: 1, platform: 1, bucket: 1, wardrobe: 1, coats: 1, plant: 1 },
+    goal: ['bedroom', 'kitchen', 'living', 'sauna'],
+    recipes: [
+      { room: 'bedroom', beside: ['bed', 'nightstand', 1], text: 'Sänky ja yöpöytä sängyn viereen.' },
+      { room: 'kitchen', items: ['stove'], beside: ['longtable', 'bench', 2], text: 'Pirtinpöytä ja kaksi penkkiä pöydän viereen, siihen huoneeseen, jossa on liesi.' },
+      { room: 'living', items: ['sofa', 'armchair'], text: 'Sohva ja nojatuoli samaan huoneeseen.' },
+      SAUNA,
+    ],
+  },
+};
+
+// Omakotitalo, 10×7 cells: the bedrooms on the left, the bathroom and a small hall in the middle, the kitchen and a
+// four-row living room on the right. The hall leads everywhere but the kitchen, which opens to the living room.
+export const omakotitalo: Building = {
+  id: 'omakotitalo',
+  name: 'Omakotitalo',
+  mode: 'pohja',
+  targets: [],
+  plan: {
+    cols: 10,
+    rows: 7,
+    rooms: [
+      { id: 'a', name: 'Ylempi nurkkahuone', x: 0, y: 0, w: 3, h: 4 },
+      { id: 'f', name: 'Alempi nurkkahuone', x: 0, y: 4, w: 3, h: 3 },
+      { id: 'b', name: 'Kylpyhuone', x: 3, y: 0, w: 2, h: 3 },
+      { id: 'd', name: 'Huone, jossa on ulko-ovi', x: 3, y: 3, w: 2, h: 4, entry: true },
+      { id: 'c', name: 'Huone, jossa on liesi', x: 5, y: 0, w: 5, h: 3 },
+      { id: 'e', name: 'Iso huone', x: 5, y: 3, w: 5, h: 4 },
+    ],
+    doors: [
+      { x: 3, y: 7, side: 'top' }, { x: 4, y: 3, side: 'top' }, { x: 3, y: 3, side: 'left' }, { x: 3, y: 5, side: 'left' },
+      { x: 5, y: 5, side: 'left' }, { x: 9, y: 3, side: 'top' },
+    ],
+    windows: [
+      { x: 1, y: 0, side: 'top' }, { x: 0, y: 1, side: 'left' }, { x: 0, y: 5, side: 'left' }, { x: 1, y: 7, side: 'top' },
+      { x: 7, y: 0, side: 'top' }, { x: 10, y: 1, side: 'left' }, { x: 10, y: 5, side: 'left' }, { x: 7, y: 7, side: 'top' },
+    ],
+    fixed: [
+      { id: 'stove', item: 'stove', x: 5, y: 0, turn: 0 },
+      { id: 'sink', item: 'sink', x: 6, y: 0, turn: 0 },
+      { id: 'shower', item: 'shower', x: 3, y: 0, turn: 0 },
+      { id: 'toilet', item: 'toilet', x: 4, y: 0, turn: 0 },
+      { id: 'basin', item: 'basin', x: 3, y: 1, turn: 3 },
+    ],
+    // The rooms need the first nine kinds; wardrobes, chests of drawers, an armchair and plants are free extras.
+    pieces: { bed: 2, nightstand: 2, sofa: 1, coffee: 1, tv: 1, table: 1, chair: 2, coats: 1, shoes: 1, wardrobe: 2, dresser: 2, armchair: 1, plant: 2 },
+    goal: ['bedroom', 'bedroom', 'kitchen', 'living', 'hall'],
+    recipes: [
+      { room: 'bedroom', beside: ['bed', 'nightstand', 1], text: 'Sänky ja yöpöytä sängyn viereen. Taloon tulee kaksi makuuhuonetta.' },
+      { room: 'kitchen', items: ['stove'], beside: ['table', 'chair', 2], text: 'Pöytä ja kaksi tuolia pöydän viereen, siihen huoneeseen, jossa on liesi.' },
+      { room: 'living', items: ['sofa', 'coffee', 'tv'], text: 'Sohva, sohvapöytä ja televisio samaan huoneeseen.' },
+      { room: 'hall', items: ['coats', 'shoes'], entry: true, text: 'Naulakko ja kenkähylly siihen huoneeseen, jossa on ulko-ovi.' },
+    ],
+  },
+};
+
+export const BUILDINGS: Building[] = [laavu, sauna, mokki, aitta, talorunko, pirtti, keittio, kylpyhuone, loylyhuone, pihasauna, mokkipohja, omakotitalo];
 export const getBuilding = (id: string): Building | undefined => BUILDINGS.find((b) => b.id === id);

@@ -1,8 +1,9 @@
-import { useRef, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
-import { DEFAULT_COLOR, FIX, SHUTOFF, type FixTool, type Material, type Tool } from './game/buildings';
+import { useEffect, useRef, useState, type DOMAttributes, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
+import { DEFAULT_COLOR, FIX, ITEM_LABEL, ITEM_SIZE, ROOM_LABEL, SHUTOFF, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
+import { footprint, recognized, roomAt, usedCells } from './game/plan';
 import { isPlaced, openTargets } from './game/rules';
-import type { Building, PieceKind, Project, Target } from './game/types';
+import type { Building, Edge, Furniture, Item, PieceKind, Project, Target } from './game/types';
 
 const ST = { stroke: '#5a3a1c', strokeWidth: 2.5, strokeLinejoin: 'round' as const };
 type Box = Pick<Target, 'kind' | 'x' | 'y' | 'w' | 'h' | 'lean'>;
@@ -318,6 +319,14 @@ interface SceneProps {
   /** Sisätyöt, finished room: tap the switch or the tap to try it. `lit` = kinds switched on. */
   onUse?: (id: string) => void;
   lit?: PieceKind[];
+  /** Sisusta: a piece is chosen (from the tray or the plan), so the free cells take taps. */
+  placing?: boolean;
+  selPiece?: string | null;
+  onCell?: (x: number, y: number) => void;
+  onPiece?: (id: string) => void;
+  /** Sisusta: pointer handlers that let a placed piece be dragged, and where a dragged piece would land. */
+  grab?: (id: string) => DOMAttributes<Element>;
+  preview?: Furniture | null;
 }
 
 /** Hirren veisto, side view: the log as five tappable parts. A part's `level` = steps already done to it. */
@@ -392,7 +401,201 @@ export function CarveLog({ step, done, parts, label, onPart }: { step: number; d
   );
 }
 
-export function Scene({ building, project, selKind = null, thumb = false, svgRef, onSlot, onPaint, onUse, lit = [] }: SceneProps) {
+// Sisusta: furniture seen from above, drawn in its unturned box (w×h units); the front faces down.
+const FL = (fill: string) => ({ fill, ...ST });
+const DRAW: Record<Item, (w: number, h: number) => JSX.Element> = {
+  bed: (w, h) => (
+    <>
+      <rect width={w} height={h} rx={4} {...FL('#f4f0e8')} />
+      <rect x={5} y={5} width={w - 10} height={14} rx={5} {...FL('#fff')} />
+      <rect y={h * 0.3} width={w} height={h * 0.7} rx={4} {...FL('#7fa7d9')} />
+    </>
+  ),
+  // A bedside table with a lamp on it.
+  nightstand: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#b07a42')} /><circle cx={w / 2} cy={h / 2} r={w * 0.26} {...FL('#fff3a0')} /></>,
+  sofa: (w, h) => (
+    <>
+      <rect width={w} height={h * 0.35} rx={4} {...FL('#4f7aa6')} />
+      <rect width={9} height={h} rx={4} {...FL('#4f7aa6')} />
+      <rect x={w - 9} width={9} height={h} rx={4} {...FL('#4f7aa6')} />
+      {[0, 1, 2].map((i) => <rect key={i} x={9 + (i * (w - 18)) / 3} y={h * 0.35} width={(w - 18) / 3} height={h * 0.65} {...FL('#7fa7d9')} />)}
+    </>
+  ),
+  // A low stand with the screen standing at its back edge.
+  tv: (w, h) => <><rect y={h * 0.3} width={w} height={h * 0.7} rx={3} {...FL('#b07a42')} /><rect x={w * 0.1} y={h * 0.12} width={w * 0.8} height={h * 0.28} rx={2} {...FL('#2b2118')} /></>,
+  table: (w, h) => <><rect width={w} height={h} rx={6} {...FL('#c98a4b')} />{[0.27, 0.73].map((f) => <circle key={f} cx={w * f} cy={h / 2} r={h * 0.27} {...FL('#fff')} />)}</>,
+  chair: (w, h) => <><rect x={4} y={h * 0.3} width={w - 8} height={h * 0.66} rx={4} {...FL('#c98a4b')} /><rect x={2} y={2} width={w - 4} height={h * 0.26} rx={3} {...FL('#8f5e30')} /></>,
+  coats: (w) => (
+    <>
+      <rect x={2} y={2} width={w - 4} height={6} rx={2} {...FL('#b07a42')} />
+      {['#a63a2a', '#2f6db5', '#3f7f4a'].map((c, i) => <rect key={c} x={4 + i * ((w - 8) / 3)} y={10} width={(w - 8) / 3 - 1} height={20} rx={3} {...FL(c)} />)}
+    </>
+  ),
+  shoes: (w, h) => (
+    <>
+      <rect width={w} height={h} rx={3} {...FL('#d9b48a')} />
+      {[0.3, 0.7].map((f) => <g key={f}><ellipse cx={w * f - 3} cy={h / 2} rx={3.5} ry={9} {...FL('#5a3a1c')} /><ellipse cx={w * f + 3} cy={h / 2} rx={3.5} ry={9} {...FL('#5a3a1c')} /></g>)}
+    </>
+  ),
+  coffee: (w, h) => <><rect x={3} y={h * 0.15} width={w - 6} height={h * 0.7} rx={6} {...FL('#c98a4b')} /><rect x={w * 0.35} y={h * 0.32} width={w * 0.3} height={h * 0.36} rx={2} {...FL('#fff')} /></>,
+  armchair: (w, h) => (
+    <>
+      <rect width={w} height={h * 0.35} rx={4} {...FL('#a65a4a')} />
+      <rect width={7} height={h} rx={3} {...FL('#a65a4a')} />
+      <rect x={w - 7} width={7} height={h} rx={3} {...FL('#a65a4a')} />
+      <rect x={7} y={h * 0.35} width={w - 14} height={h * 0.65} {...FL('#d98a7a')} />
+    </>
+  ),
+  // Two doors seen from above, handles at the front.
+  wardrobe: (w, h) => <><rect width={w} height={h} rx={2} {...FL('#e0c79e')} /><line x1={w / 2} y1={0} x2={w / 2} y2={h} {...ST} />{[-5, 5].map((d) => <circle key={d} cx={w / 2 + d} cy={h - 6} r={2.5} fill="#5a3a1c" />)}</>,
+  // A chest of drawers from above: the drawer fronts and their knobs face down.
+  dresser: (w, h) => <><rect width={w} height={h} rx={2} {...FL('#9c6a3c')} /><rect x={3} y={h - 10} width={w - 6} height={7} rx={2} {...FL('#c98a4b')} />{[0.25, 0.5, 0.75].map((f) => <circle key={f} cx={w * f} cy={h - 6.5} r={2} fill="#3a2614" />)}</>,
+  plant: (w, h) => <><circle cx={w / 2} cy={h / 2} r={w * 0.3} {...FL('#b5653a')} />{[0, 72, 144, 216, 288].map((a) => <ellipse key={a} cx={w / 2} cy={h / 2 - 9} rx={5} ry={10} transform={`rotate(${a} ${w / 2} ${h / 2})`} {...FL('#4f9a4a')} />)}</>,
+  // A bench seen from above: two boards.
+  bench: (w, h) => <><rect y={h * 0.2} width={w} height={h * 0.6} rx={3} {...FL('#d9b48a')} /><line x1={0} y1={h / 2} x2={w} y2={h / 2} {...ST} /></>,
+  // A long farmhouse table: thick boards end to end.
+  longtable: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#b07a42')} />{[1 / 3, 2 / 3].map((f) => <line key={f} x1={0} y1={h * f} x2={w} y2={h * f} {...ST} />)}</>,
+  // Sauna benches: light boards with gaps, the step in front.
+  platform: (w, h) => <><rect width={w} height={h} rx={2} {...FL('#e8cfa0')} />{[0.25, 0.5].map((f) => <line key={f} x1={0} y1={h * f} x2={w} y2={h * f} {...ST} />)}<rect y={h * 0.7} width={w} height={h * 0.3} rx={2} {...FL('#d9b48a')} /></>,
+  // A wooden bucket with water and its ladle.
+  bucket: (w, h) => <><line x1={w / 2} y1={h / 2} x2={w - 3} y2={3} {...ST} /><circle cx={w / 2} cy={h / 2} r={w * 0.3} {...FL('#b07a42')} /><circle cx={w / 2} cy={h / 2} r={w * 0.2} {...FL('#cfe6ea')} /></>,
+  stove: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#e8e8e2')} />{[[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]].map(([a, b]) => <circle key={`${a}${b}`} cx={w * a!} cy={h * b!} r={w * 0.15} fill="#3a3a38" />)}</>,
+  sink: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#d8d8d0')} /><rect x={5} y={10} width={w - 10} height={h - 15} rx={4} {...FL('#9aa3ab')} /><circle cx={w / 2} cy={6} r={3} fill="#5a5a52" /></>,
+  shower: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#e4ecef')} /><circle cx={w / 2} cy={h / 2} r={4} {...FL('#9aa3ab')} /><circle cx={7} cy={7} r={5} {...FL('#9aa3ab')} /></>,
+  toilet: (w) => <><rect x={6} y={0} width={w - 12} height={10} rx={2} {...FL('#f4f0e8')} /><ellipse cx={w / 2} cy={22} rx={11} ry={12} {...FL('#f4f0e8')} /><ellipse cx={w / 2} cy={23} rx={6} ry={7} {...FL('#cfe6ea')} /></>,
+  // An electric kiuas: a dark box full of stones.
+  heater: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#3a3a38')} />{[[0.3, 0.3], [0.7, 0.3], [0.5, 0.55], [0.3, 0.78], [0.7, 0.78]].map(([a, b]) => <circle key={`${a}${b}`} cx={w * a!} cy={h * b!} r={w * 0.14} fill="#9a948a" />)}</>,
+  // A copper water kettle in its frame, the lid on top.
+  kettle: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#3a3a38')} /><circle cx={w / 2} cy={h / 2} r={w * 0.36} {...FL('#c06a3a')} /><circle cx={w / 2} cy={h / 2} r={w * 0.16} {...FL('#e09a6a')} /></>,
+  // A square white basin with its tap at the wall: unlike the toilet's oval, so the two never look alike.
+  basin: (w, h) => <><rect x={2} width={w - 4} height={h * 0.8} rx={6} {...FL('#fff')} /><rect x={8} y={9} width={w - 16} height={h * 0.8 - 14} rx={5} {...FL('#cfe6ea')} /><circle cx={w / 2} cy={5} r={3} fill="#5a5a52" /></>,
+};
+const CELL = 40;
+const inner = (n: number) => CELL * n - 6;
+/** Draws a piece in its cells, turned about its centre. */
+function Piece({ f }: { f: Furniture }) {
+  const [w, h] = footprint(f);
+  const [w0, h0] = ITEM_SIZE[f.item];
+  const cx = CELL * (f.x + w / 2);
+  const cy = CELL * (f.y + h / 2);
+  return <g transform={`translate(${cx} ${cy}) rotate(${f.turn * 90}) translate(${-inner(w0) / 2} ${-inner(h0) / 2})`}>{DRAW[f.item](inner(w0), inner(h0))}</g>;
+}
+export function ItemIcon({ item }: { item: Item }) {
+  const [w, h] = ITEM_SIZE[item].map(inner) as [number, number];
+  return <svg viewBox={`-3 -3 ${w + 6} ${h + 6}`} aria-hidden="true">{DRAW[item](w, h)}</svg>;
+}
+/** The plan cell under a screen point, or null outside the house. */
+export function planCell(svg: SVGSVGElement, cols: number, rows: number, x: number, y: number): [number, number] | null {
+  const m = svg.getScreenCTM();
+  if (!m) return null;
+  const p = new DOMPoint(x, y).matrixTransform(m.inverse());
+  const c: [number, number] = [Math.floor(p.x / CELL), Math.floor(p.y / CELL)];
+  return c[0] >= 0 && c[0] < cols && c[1] >= 0 && c[1] < rows ? c : null;
+}
+const WALL = '#4a3b2c';
+const FLOOR = '#efe9dc';
+
+function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell, onPiece, grab, preview }: SceneProps) {
+  const plan = building.plan!;
+  const furn = project.furniture ?? [];
+  const used = usedCells(plan, furn);
+  // A room that has just become furnished gets its tag until the next move or for 4 s (faded by CSS), so tags never cover furniture for long.
+  const named = recognized(plan, furn);
+  const prev = useRef(named);
+  const [fresh, setFresh] = useState<{ ids: string[]; n: number }>({ ids: [], n: 0 });
+  useEffect(() => {
+    const ids = Object.keys(named).filter((id) => named[id]!.some((k) => !prev.current[id]?.includes(k)));
+    prev.current = named;
+    // The next move hides an earlier tag (its timer is cleared with this effect).
+    if (!ids.length) { setFresh((f) => (f.ids.length ? { ...f, ids: [] } : f)); return; }
+    setFresh((f) => ({ ids, n: f.n + 1 }));
+    const t = setTimeout(() => setFresh((f) => ({ ...f, ids: [] })), 4000);
+    return () => clearTimeout(t);
+  }, [project.furniture]);
+  const cells = Array.from({ length: plan.cols * plan.rows }, (_, i) => [i % plan.cols, Math.floor(i / plan.cols)] as const);
+  const at = (x: number, y: number) => ({ X: CELL * x, Y: CELL * y });
+  // A door is a gap in the wall with its leaf swung open into the cell inside the house.
+  const door = (d: Edge) => {
+    const { X, Y } = at(d.x, d.y);
+    const s = (d.side === 'top' ? d.y < plan.rows : d.x < plan.cols) ? 1 : -1;
+    const path = d.side === 'top'
+      ? `M${X + 3} ${Y}v${s * 34}M${X + 37} ${Y}A34 34 0 0 ${s > 0 ? 1 : 0} ${X + 3} ${Y + s * 34}`
+      : `M${X} ${Y + 3}h${s * 34}M${X} ${Y + 37}A34 34 0 0 ${s > 0 ? 0 : 1} ${X + s * 34} ${Y + 3}`;
+    return (
+      <g key={`d${d.x},${d.y}${d.side}`}>
+        <rect x={d.side === 'top' ? X + 3 : X - 6} y={d.side === 'top' ? Y - 6 : Y + 3} width={d.side === 'top' ? 34 : 12} height={d.side === 'top' ? 12 : 34} fill={FLOOR} />
+        <path d={path} fill="none" stroke={WALL} strokeWidth={2} strokeDasharray="4 3" />
+      </g>
+    );
+  };
+  const win = (d: Edge) => {
+    const { X, Y } = at(d.x, d.y);
+    return <rect key={`w${d.x},${d.y}${d.side}`} x={d.side === 'top' ? X + 6 : X - 4} y={d.side === 'top' ? Y - 4 : Y + 6} width={d.side === 'top' ? 28 : 8} height={d.side === 'top' ? 8 : 28} fill="#bfe3f5" stroke={WALL} strokeWidth={1.5} />;
+  };
+  return (
+    // No browser panning on the plan: a finger on it drags furniture.
+    <svg ref={svgRef} viewBox={`-8 -8 ${CELL * plan.cols + 16} ${CELL * plan.rows + 16}`} role={thumb ? 'img' : 'group'} aria-label={building.name} aria-hidden={thumb || undefined}
+      style={thumb ? undefined : { touchAction: 'none' }}>
+      <rect x={-8} y={-8} width={CELL * plan.cols + 16} height={CELL * plan.rows + 16} fill="#7fae7a" />
+      {plan.rooms.map((r) => <rect key={r.id} x={at(r.x, r.y).X} y={at(r.x, r.y).Y} width={CELL * r.w} height={CELL * r.h} fill={FLOOR} />)}
+      {/* The grid: furniture snaps to these cells. */}
+      {!thumb && cells.map(([x, y]) => <rect key={`g${x},${y}`} x={at(x, y).X} y={at(x, y).Y} width={CELL} height={CELL} fill="none" stroke="#d6cdb8" strokeWidth={1} />)}
+      {/* While a piece is chosen every cell takes a tap; the free ones are yellow (taps on the rest get a hint). */}
+      {placing && onCell && cells.map(([x, y]) => {
+        const r = roomAt(plan, x, y)!;
+        const free = !used.has(`${x},${y}`);
+        return (
+          <rect key={`c${x},${y}`} className="slot" x={at(x, y).X + 2} y={at(x, y).Y + 2} width={CELL - 4} height={CELL - 4} rx={4}
+            fill={free ? '#fff1b8' : 'transparent'} aria-label={`${r.name}, ruutu ${(y - r.y) * r.w + x - r.x + 1}${free ? '' : ', varattu'}`} {...press(() => onCell(x, y))} />
+        );
+      })}
+      <g pointerEvents="none">
+        {plan.rooms.map((r) => <rect key={r.id} x={at(r.x, r.y).X} y={at(r.x, r.y).Y} width={CELL * r.w} height={CELL * r.h} fill="none" stroke={WALL} strokeWidth={5} />)}
+        <rect width={CELL * plan.cols} height={CELL * plan.rows} fill="none" stroke={WALL} strokeWidth={8} />
+        {plan.doors.map(door)}
+        {plan.windows.map(win)}
+        {plan.fixed.map((f) => <Piece key={f.id} f={f} />)}
+      </g>
+      {furn.map((f) => {
+        const [w, h] = footprint(f);
+        const sel = selPiece === f.id;
+        const box = { x: at(f.x, f.y).X, y: at(f.x, f.y).Y, width: CELL * w, height: CELL * h };
+        return onPiece ? (
+          <g key={f.id} className="slot" aria-label={ITEM_LABEL[f.item]} aria-pressed={sel} {...press(() => onPiece(f.id))} {...grab?.(f.id)}>
+            <rect {...box} fill="transparent" />
+            <Piece f={f} />
+            {sel && <rect {...box} rx={6} fill="none" stroke="#0b5cad" strokeWidth={5} />}
+          </g>
+        ) : <Piece key={f.id} f={f} />;
+      })}
+      {/* Where a dragged piece will land: dashed, so it reads as not yet placed. */}
+      {preview && (
+        <g opacity={0.7} pointerEvents="none">
+          <rect x={CELL * preview.x} y={CELL * preview.y} width={CELL * footprint(preview)[0]} height={CELL * footprint(preview)[1]} rx={6} fill="#fff1b8" stroke="#0b5cad" strokeWidth={4} strokeDasharray="8 5" />
+          <Piece f={preview} />
+        </g>
+      )}
+      {!thumb && plan.rooms.filter((r) => fresh.ids.includes(r.id) && named[r.id]).map((r) => {
+        const label = `✓ ${named[r.id]!.map((k, i) => (i ? ROOM_LABEL[k].toLowerCase() : ROOM_LABEL[k])).join(' ja ')}`;
+        const w = label.length * 7.5 + 16;
+        const cx = CELL * (r.x + r.w / 2);
+        const cy = CELL * (r.y + r.h / 2);
+        return (
+          <g key={`${r.id}${fresh.n}`} className="roomtag" pointerEvents="none">
+            <rect x={cx - w / 2} y={cy - 11} width={w} height={22} rx={11} fill="#fff" stroke="#3f7f4a" strokeWidth={2.5} />
+            <text x={cx} y={cy + 5} textAnchor="middle" fontSize={13} fontWeight={700} fill="#2b2118">{label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+export function Scene(props: SceneProps) {
+  return props.building.plan ? <PlanScene {...props} /> : <BuildScene {...props} />;
+}
+
+function BuildScene({ building, project, selKind = null, thumb = false, svgRef, onSlot, onPaint, onUse, lit = [] }: SceneProps) {
   // A shut-off is on until it is turned off, and again once its `on` target is placed.
   const shutOn = (k: PieceKind) => {
     const ts = building.targets.filter((t) => t.kind === k);
@@ -416,7 +619,7 @@ export function Scene({ building, project, selKind = null, thumb = false, svgRef
       {building.mode === 'runko' && building.stones && building.targets.slice(0, 2).map((t) => <rect key={t.id} x={t.x - 4} y={t.y + t.h} width={t.w + 8} height={270 - t.y - t.h} rx={4} fill="#9a9a92" {...ST} />)}
       {building.mode === 'runko' && !building.stones && <rect x={building.targets[0]!.x - 4} y={252} width={building.targets[1]!.x + building.targets[1]!.w - building.targets[0]!.x + 8} height={18} rx={3} fill="#9a9a92" {...ST} />}
       {/* Round ends and wall fittings are small: a wider invisible area keeps them easy to tap. Drawn under every
-          slot so a margin never steals a tap from a neighbouring piece (Pirtti's roof pieces sit close together). */}
+          slot so a margin never steals a tap from a neighbouring piece (Omakotitalon runko's roof pieces sit close together). */}
       {onSlot && building.targets.filter((t) => open.includes(t.id) && !isPlaced(project, t.id) && !(t.kind in SHUTOFF) && (ROUND.has(t.kind) || Math.min(t.w, t.h) < 44)).map((t) => (
         <rect key={t.id} className="slot" x={t.x - 12} y={t.y - 12} width={t.w + 24} height={t.h + 24} fill="transparent" aria-hidden="true" onClick={() => onSlot(t.id)} />
       ))}

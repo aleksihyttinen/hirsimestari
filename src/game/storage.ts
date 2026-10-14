@@ -1,4 +1,5 @@
 import { getBuilding } from './buildings';
+import { cleanFurniture } from './plan';
 import { finished } from './rules';
 import type { Project, SaveData } from './types';
 
@@ -22,11 +23,13 @@ function cleanProject(v: unknown): Project | null {
   const colors: Record<string, string> = {};
   for (const [k, c] of Object.entries(v.colors)) if (ids.has(k) && typeof c === 'string') colors[k] = c;
   const carved = Array.isArray(v.carved) ? v.carved.filter((x): x is string => typeof x === 'string' && ids.has(x)) : [];
+  const furniture = b.plan && Array.isArray(v.furniture) ? cleanFurniture(b.plan, v.furniture) : [];
   return {
     id: v.id, buildingId: v.buildingId, placed, colors,
     // A building that gained pieces goes back to building; one that lost them is not left with an empty tray.
-    phase: placed.length < b.targets.length ? 'build' : v.phase === 'build' ? finished(b) : v.phase,
-    ...(v.carve === true && { carve: true }), ...(carved.length && { carved }),
+    // A floor plan has no pieces to count: it is done only when the player said so.
+    phase: b.plan ? v.phase : placed.length < b.targets.length ? 'build' : v.phase === 'build' ? finished(b) : v.phase,
+    ...(v.carve === true && { carve: true }), ...(carved.length && { carved }), ...(furniture.length && { furniture }),
   };
 }
 

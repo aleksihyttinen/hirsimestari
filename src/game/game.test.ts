@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_LABEL, MATERIALS, SHUTOFF, SHUTON, TOOLS, aitta, keittio, kylpyhuone, laavu, loylyhuone, mokki, pirtti, sauna, talorunko } from './buildings';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_LABEL, MATERIALS, SHUTOFF, SHUTON, TOOLS, aitta, keittio, kylpyhuone, laavu, loylyhuone, mokki, mokkipohja, omakotitalo, pihasauna, pirtti, sauna, talorunko } from './buildings';
 import { isDrag } from './gesture';
 import { available, availableKinds, canPlace, choices, hintFor, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
 import { loadData, newProject, saveData, type Store } from './storage';
-import type { Project } from './types';
+import { fitNear, left, missing, recognized, turnNear, whyNotFit } from './plan';
+import type { Furniture, Project } from './types';
 
 const fresh = () => newProject('sauna', 'p1');
 const build = (p: Project, n: number) => {
@@ -41,7 +42,7 @@ describe('placement', () => {
 
 describe('other buildings', () => {
   it('every building fits the picture and can be finished', () => {
-    for (const b of BUILDINGS) {
+    for (const b of BUILDINGS.filter((x) => !x.plan)) {
       for (const t of b.targets) {
         expect(t.x >= 40 && t.x + t.w <= 360 && t.y >= 10 && t.y + t.h <= 270, `${b.id}/${t.id}`).toBe(true);
         for (const a of t.after) expect(b.targets.some((x) => x.id === a)).toBe(true);
@@ -192,7 +193,7 @@ describe('hirsityöt: aitan runko', () => {
   });
 });
 
-describe('hirsityöt: pirtti and hewing', () => {
+describe('hirsityöt: the large frame and hewing', () => {
   it('frames are small, medium and large and can each be finished without painting', () => {
     const frames = [aitta, talorunko, pirtti];
     expect(frames.map((b) => b.targets.length)).toEqual([13, 16, 22]);
@@ -283,5 +284,107 @@ describe('Sisätyöt', () => {
       expect(c.length).toBe(3);
       expect(new Set(c).size).toBe(c.length);
     }
+  });
+});
+
+describe('huoneet: omakotitalo', () => {
+  const plan = omakotitalo.plan!;
+  const f = (id: string, item: Furniture['item'], x: number, y: number, turn = 0): Furniture => ({ id, item, x, y, turn });
+  // One way to furnish every room, using exactly the pieces the tray offers.
+  const home = [
+    f('1', 'bed', 0, 0), f('2', 'nightstand', 1, 0),
+    f('3', 'bed', 0, 5), f('4', 'nightstand', 1, 6),
+    f('5', 'table', 6, 1), f('6', 'chair', 6, 2), f('7', 'chair', 7, 2),
+    f('8', 'sofa', 6, 6, 2), f('9', 'coffee', 7, 5), f('10', 'tv', 7, 3),
+    f('11', 'coats', 3, 4), f('12', 'shoes', 4, 6),
+    f('13', 'wardrobe', 2, 0, 1), f('14', 'wardrobe', 1, 4), f('15', 'armchair', 9, 6), f('16', 'plant', 9, 0), f('17', 'plant', 5, 6), f('19', 'dresser', 2, 2), f('20', 'dresser', 2, 6),
+  ];
+  it('furniture stays inside one room, off door cells and off other pieces', () => {
+    expect(whyNotFit(plan, [], f('x', 'bed', 2, 0, 1))).toBe('wall'); // reaches into the bathroom
+    expect(whyNotFit(plan, [], f('x', 'chair', 2, 3))).toBe('door');
+    expect(whyNotFit(plan, [], f('x', 'chair', 5, 0))).toBe('taken'); // the stove
+    expect(whyNotFit(plan, [f('a', 'sofa', 6, 4)], f('x', 'chair', 8, 4))).toBe('taken');
+    expect(whyNotFit(plan, [], f('x', 'sofa', 8, 5, 1))).toBe('wall'); // turned, it runs off the plan
+    for (const p of home) expect(whyNotFit(plan, home, p), p.item).toBeNull();
+  });
+  it('a tap or drop finds a spot that covers the cell', () => {
+    expect(fitNear(plan, [], f('x', 'bed', 0, 0), 2, 2)).toMatchObject({ x: 2, y: 1 });
+    expect(fitNear(plan, [], f('x', 'bed', 0, 0), 2, 3)).toBeNull(); // in front of the door
+  });
+  it('turns a quarter, or a half turn where a quarter cannot fit', () => {
+    expect(turnNear(plan, [], f('x', 'chair', 0, 3))).toMatchObject({ turn: 1 });
+    expect(turnNear(plan, [f('a', 'tv', 7, 4), f('b', 'chair', 6, 4)], f('x', 'sofa', 6, 6))).toMatchObject({ x: 6, y: 6, turn: 2 });
+  });
+  it('offers the right amounts and recognises a furnished home with two bedrooms', () => {
+    for (const [item, n] of Object.entries(plan.pieces)) expect(home.filter((p) => p.item === item).length, item).toBe(n);
+    expect(left(plan, home, 'chair')).toBe(0);
+    expect(recognized(plan, home)).toEqual({ a: ['bedroom'], f: ['bedroom'], c: ['kitchen'], e: ['living'], d: ['hall'] });
+    expect(missing(plan, home)).toEqual([]);
+    expect(missing(plan, home.filter((p) => p.id !== '4'))).toEqual(['bedroom']);
+  });
+  it('a room needs its whole setup, and a kitchen needs the stove', () => {
+    expect(recognized(plan, [f('a', 'bed', 0, 0)]).a).toBeUndefined();
+    expect(recognized(plan, [f('a', 'table', 6, 4), f('b', 'chair', 6, 5), f('c', 'chair', 7, 5)]).e).toBeUndefined();
+    expect(recognized(plan, [f('a', 'bed', 6, 4, 1), f('b', 'nightstand', 8, 4)]).e).toEqual(['bedroom']);
+    expect(recognized(plan, home.filter((p) => p.item !== 'coffee')).e).toBeUndefined();
+    // Each building has its own rules: a sofa and an armchair are a living room in the mökki, not here.
+    expect(recognized(plan, [f('a', 'sofa', 6, 4), f('b', 'armchair', 6, 5)]).e).toBeUndefined();
+    expect(recognized(mokkipohja.plan!, [f('a', 'sofa', 4, 4), f('b', 'armchair', 4, 5)]).b).toEqual(['living']);
+  });
+  it('saves furniture, drops what does not fit, and keeps the plan in build', () => {
+    const s = fakeStore();
+    const p = { ...newProject('omakotitalo', 'h'), furniture: [...home, f('18', 'chair', 8, 0), f('x', 'bed', 2, 0, 1)] };
+    saveData(s, { projects: [p], settings: { sound: false, big: false, speech: false }, keep: [] });
+    const back = loadData(s).projects[0]!;
+    expect(back.furniture).toEqual(home); // a third chair and a bed through the wall are dropped
+    expect(back.phase).toBe('build');
+  });
+});
+
+describe('huoneet: every plan', () => {
+  const f = (id: string, item: Furniture['item'], x: number, y: number, turn = 0): Furniture => ({ id, item, x, y, turn });
+  it('every cell is in exactly one room and the fixtures fit', () => {
+    for (const b of BUILDINGS.filter((x) => x.plan)) {
+      const plan = b.plan!;
+      for (let y = 0; y < plan.rows; y++)
+        for (let x = 0; x < plan.cols; x++)
+          expect(plan.rooms.filter((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h).length, `${b.id} ${x},${y}`).toBe(1);
+      for (const p of plan.fixed) expect(whyNotFit(plan, [], p), `${b.id}/${p.id}`).toBe(null);
+    }
+  });
+  // One way to furnish each, using exactly the pieces the tray offers.
+  const homes: [typeof pihasauna, Furniture[], Record<string, string[]>][] = [
+    [pihasauna, [
+      f('1', 'bench', 0, 0), f('2', 'coats', 2, 2), f('3', 'table', 0, 1, 1), f('4', 'chair', 1, 1), f('5', 'chair', 1, 2), f('6', 'plant', 2, 3),
+      f('7', 'platform', 3, 3), f('8', 'bucket', 4, 2),
+    ], { a: ['dressing'], c: ['sauna'] }],
+    [mokkipohja, [
+      f('1', 'bed', 0, 0), f('2', 'nightstand', 1, 0), f('3', 'wardrobe', 0, 2),
+      f('4', 'platform', 1, 5), f('5', 'bucket', 2, 4),
+      f('6', 'bench', 4, 1), f('7', 'longtable', 4, 2), f('8', 'bench', 4, 3),
+      f('9', 'sofa', 7, 3, 1), f('10', 'armchair', 6, 5),
+      f('12', 'coats', 3, 0), f('13', 'plant', 7, 2),
+    ], { a: ['bedroom'], d: ['sauna'], b: ['kitchen', 'living'] }],
+  ];
+  it('the small plans can be furnished, and the big room of the mökki is both kitchen and living room', () => {
+    for (const [b, home, rooms] of homes) {
+      const plan = b.plan!;
+      for (const p of home) expect(whyNotFit(plan, home, p), `${b.id}/${p.item}`).toBeNull();
+      for (const [item, n] of Object.entries(plan.pieces)) expect(home.filter((p) => p.item === item).length, `${b.id}/${item}`).toBe(n);
+      expect(recognized(plan, home)).toEqual(rooms);
+      expect(missing(plan, home)).toEqual([]);
+    }
+  });
+  it('a pirtinpöytä needs both benches beside it', () => {
+    const plan = mokkipohja.plan!;
+    const seats = [f('a', 'bench', 4, 1), f('b', 'longtable', 4, 2), f('c', 'bench', 4, 3)];
+    expect(recognized(plan, seats).b).toEqual(['kitchen']);
+    expect(recognized(plan, seats.slice(0, 2)).b).toBeUndefined();
+  });
+  it('a löylyhuone needs the kiuas, lauteet and kiulu', () => {
+    const plan = pihasauna.plan!;
+    expect(recognized(plan, [f('a', 'platform', 3, 3)]).c).toBeUndefined();
+    expect(recognized(plan, [f('a', 'platform', 0, 3), f('b', 'bucket', 2, 0)]).a).toBeUndefined(); // no kiuas there
+    expect(missing(plan, [f('a', 'bench', 0, 0), f('b', 'coats', 2, 2)])).toEqual(['sauna']);
   });
 });

@@ -46,6 +46,9 @@ main.play .bar h1{flex:1;min-width:0;font-size:1.4rem;white-space:nowrap;overflo
 main.play #app>.side{grid-column:2;grid-row:2;min-height:0}
 main.play .side>.msg{flex:1;min-height:0;overflow-y:auto}
 main.play .more,main.play .count{display:block}main.play .more{font-size:.9rem}
+/* Sisusta: a room's "✓ name" tag shows when it is furnished and fades away so it never hides furniture for long. */
+.roomtag{animation:roomtag 4s forwards}@keyframes roomtag{75%{opacity:1}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){.roomtag{animation:none}}
 main.play .cnt{display:none}
 main.play #app>.stage{grid-column:1;grid-row:2;position:relative}
 main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
@@ -75,6 +78,8 @@ main.play .tray>button:not(.piece){background:color-mix(in srgb,var(--line) 14%,
 .piece,.sw{position:relative}
 .piece[aria-pressed="true"]::after,.sw[aria-pressed="true"]::after{content:"✓"/"";position:absolute;top:2px;right:6px;font-weight:800;font-size:1.1rem;line-height:1}
 .piece svg{width:90px;height:56px}
+/* Sisusta actions on a chosen piece: a large symbol where a piece has its picture. */
+.piece>b{font-size:2rem;line-height:44px}
 .sw{width:128px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.8rem}
 .sw i{width:56px;height:30px;border-radius:8px;border:2px solid var(--line);display:block}
 .sw[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent)}

@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
+import { useEffect, useLayoutEffect, useRef, useState, type DOMAttributes, type ReactNode } from 'react';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, ITEM_LABEL, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, ROOM_LABEL, SHUTOFF, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
+import { fitNear, left, missing, recognized, turnNear, whyNotFit } from './game/plan';
 import { canPlace, choices, hintFor, isPlaced, nearestTarget, needsCarve, openTargets, paint, pickKind, place, placeHint, trayKinds, undo, unplaced, whyNot } from './game/rules';
 import { loadData, newProject, saveData, type Store } from './game/storage';
-import type { Building, PieceKind, Project, SaveData, Settings } from './game/types';
-import { CarveLog, FixPiece, Icon, PartIcon, Scene, ToolIcon } from './Scene';
+import type { Building, Furniture, Item, PieceKind, Project, SaveData, Settings } from './game/types';
+import { CarveLog, FixPiece, Icon, ItemIcon, PartIcon, Scene, ToolIcon, planCell } from './Scene';
 
 type View = 'home' | 'modes' | 'pick' | 'new' | 'settings' | 'game' | 'carve' | 'fix' | 'help';
 
@@ -31,10 +32,11 @@ function beep(on: boolean, freq = 520, dur = 0.15, at = 0) {
 
 // Ohje (the ? button). The menu screens and the two game modes each get their own instructions.
 const MENU_HELP: [string, string][] = [
-  ['Pelaa', 'Valitse peli: Rakenna, Hirsityöt tai Sisätyöt.'],
+  ['Pelaa', 'Valitse peli: Rakenna, Hirsityöt, Sisätyöt tai Sisusta.'],
   ['Rakenna', 'Rakenna talo palasista. Maalaa se sitten.'],
   ['Hirsityöt', 'Rakenna hirsirunko. Mieti itse, missä järjestyksessä hirret tulevat.'],
   ['Sisätyöt', 'Laita huoneeseen sähköt ja vesi. Valitse oikea kiinnike ja työkalu.'],
+  ['Sisusta', 'Sisusta rakennus niin kuin haluat. Huoneesta tulee valmis, kun oikeat huonekalut ovat siellä.'],
   ['Tallennus', 'Kaikki tallentuu itsestään. Voit jatkaa myöhemmin.'],
   ['Asetukset', 'Laita päälle äänet, puhe tai suuri teksti.'],
 ];
@@ -45,6 +47,21 @@ const BUILD_HELP: [string, string][] = [
   ['Maalaa', 'Kun rakennus on valmis, valitse väri. Napauta sitten osaa.'],
   ['Valmis', 'Paina Valmis, kun olet tyytyväinen. Voit maalata myöhemmin uudelleen.'],
 ];
+// Sisusta: how to furnish. The open building's own rooms (`plan.recipes`) go after the first two lines.
+const POHJA_HELP: [string, string][] = [
+  ['Sisusta', 'Vedä huonekalu alta kuvaan. Voit myös valita sen ja napauttaa kohtaa kuvassa.'],
+  ['Siirrä ja käännä', 'Vedä huonekalu uuteen paikkaan. Tai napauta sitä ja paina Käännä tai Poista. Valmis lopettaa muokkauksen.'],
+  ['Muut', 'Muut huonekalut sopivat mihin tahansa huoneeseen.'],
+  ['Peru', 'Peru kumoaa viimeisimmän muutoksen.'],
+  ['Valmis', 'Kun olet tyytyväinen, paina esimerkiksi Mökki valmis. Voit jatkaa myöhemmin.'],
+];
+const FIT_HINT = {
+  wall: 'Tähän se ei mahdu. Kokeile toista kohtaa.',
+  door: 'Oven eteen ei voi laittaa mitään. Kokeile toista kohtaa.',
+  taken: 'Siinä on jo jotain. Kokeile toista kohtaa.',
+};
+const fanfare = (on: boolean) => { beep(on, 523, 0.15, 0); beep(on, 659, 0.15, 0.15); beep(on, 784, 0.3, 0.3); };
+
 // Rakennusohje (Hirsityöt). Real log-building terms, one short sentence each.
 const GUIDE: [string, string][] = [
   ['Kivijalka', 'Kiviperustus. Runko rakennetaan sen päälle. Aitta seisoo usein nurkkakivien päällä.'],
@@ -96,7 +113,8 @@ const tryHint = (b: Building, lit: PieceKind[]) => {
 };
 
 const status = (b: Building, p: Project) =>
-  p.phase === 'done' ? '✓ Valmis' : p.phase === 'paint' ? 'Maalattavana' : `Kesken: ${p.placed.length} / ${b.targets.length}`;
+  p.phase === 'done' ? '✓ Valmis' : p.phase === 'paint' ? 'Maalattavana'
+    : b.plan ? `Kesken: ${b.plan.goal.length - missing(b.plan, p.furniture ?? []).length} / ${b.plan.goal.length} huonetta` : `Kesken: ${p.placed.length} / ${b.targets.length}`;
 
 export default function App() {
   const [data, setData] = useState<SaveData>(() => loadData(store()));
@@ -110,6 +128,13 @@ export default function App() {
   // Sisätyöt: the piece being fastened (step 0 material, 1 tool, 2 tapping), and what is switched on in a finished room. Neither is saved.
   const [fixing, setFixing] = useState<{ id: string; kind: PieceKind; step: number; done: number[]; materials: Material[]; tools: FixTool[] } | null>(null);
   const [lit, setLit] = useState<PieceKind[]>([]);
+  // Sisusta: the tray piece or placed piece chosen, and earlier furniture for Peru (not saved).
+  const [selItem, setSelItem] = useState<Item | null>(null);
+  const [selPiece, setSelPiece] = useState<string | null>(null);
+  const [history, setHistory] = useState<Furniture[][]>([]);
+  // A piece being dragged (from the tray, or `id` when already placed) and where it would land.
+  const planDrag = useRef<{ item: Item; id?: string; x: number; y: number; active: boolean } | null>(null);
+  const [preview, setPreview] = useState<Furniture | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [selKind, setSelKind] = useState<PieceKind | null>(null);
   const [selColor, setSelColor] = useState(1);
@@ -117,7 +142,7 @@ export default function App() {
   const [msg, setMsg] = useState({ text: '', n: 0 });
   const say = (text: string) => setMsg((m) => ({ text, n: m.n + 1 }));
   const [armed, setArmed] = useState<string | null>(null);
-  const [ghost, setGhost] = useState<{ x: number; y: number; kind: PieceKind } | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ kind: PieceKind; x: number; y: number; active: boolean } | null>(null);
   const wasDrag = useRef(false);
@@ -169,8 +194,8 @@ export default function App() {
     const p = fresh ?? data.projects.find((x) => x.id === id);
     const b = p && getBuilding(p.buildingId);
     if (!p || !b) return;
-    setOpenId(id); setSelKind(null); setSelColor(1); setLit([]);
-    say(p.phase === 'build' ? hintFor(b, p, null) : b.mode === 'runko' ? 'Runko on valmis.' : b.mode === 'sisa' ? tryHint(b, []) : 'Valitse väri. Napauta sitten osaa.');
+    setOpenId(id); setSelKind(null); setSelColor(1); setLit([]); setSelItem(null); setSelPiece(null); setHistory([]);
+    say(b.plan ? `Sisusta ${b.name.toLowerCase()}. Vedä huonekalu alta kuvaan.` : p.phase === 'build' ? hintFor(b, p, null) : b.mode === 'runko' ? 'Runko on valmis.' : b.mode === 'sisa' ? tryHint(b, []) : 'Valitse väri. Napauta sitten osaa.');
     go('game');
   }
   function create(buildingId: string, carve = false) {
@@ -210,7 +235,7 @@ export default function App() {
     if (next.phase !== 'build') {
       setSelColor(1);
       say(building.mode === 'runko' ? 'Runko on valmis! Hienoa!' : building.mode === 'sisa' ? `${building.name} on valmis! Hienoa! ${tryHint(building, [])}` : 'Rakennus on valmis! Hienoa! Maalaa halutessasi.');
-      beep(sound, 523, 0.15, 0); beep(sound, 659, 0.15, 0.15); beep(sound, 784, 0.3, 0.3);
+      fanfare(sound);
     } else {
       beep(sound);
       say('Hyvä! ' + (building.mode === 'runko' ? `${KIND_INFO[kind] ?? ''} ` : '') + hintFor(building, next, kind));
@@ -281,6 +306,102 @@ export default function App() {
     const t = nearestTarget(building, project, kind, p.x, p.y, 80, openTargets(building, project));
     if (t) doPlace(t.id, kind); else say('Kokeile uudelleen. ' + placeHint(kind));
   }
+  // Sisusta. Every change is kept for Peru; a room that becomes complete is praised, nothing is ever called wrong.
+  const furn = project?.furniture ?? [];
+  function furnish(next: Furniture[], text: string) {
+    const plan = building?.plan;
+    if (!plan || !project) return;
+    const before = recognized(plan, furn);
+    const after = recognized(plan, next);
+    setHistory((h) => [...h, furn]);
+    update({ ...project, furniture: next });
+    const fresh = Object.entries(after).flatMap(([id, ks]) => ks.filter((k) => !before[id]?.includes(k)))[0];
+    const lack = missing(plan, next);
+    const n = plan.goal.length - lack.length;
+    if (!lack.length && missing(plan, furn).length) {
+      say(`Kaikki huoneet ovat valmiina! Hienoa! Paina ${building.name} valmis, tai jatka sisustamista.`);
+      fanfare(sound);
+    } else if (fresh) {
+      say(`Hienoa! Tästä tuli ${ROOM_LABEL[fresh].toLowerCase()}. Huoneita valmiina ${n} / ${plan.goal.length}.`);
+      beep(sound, 660, 0.25);
+    } else {
+      // Every piece is out but a room is still missing: a tip for the first one, never a fault.
+      const all = (Object.keys(plan.pieces) as Item[]).every((i) => left(plan, next, i) <= 0);
+      const tip = plan.recipes.find((r) => r.room === lack[0])?.text;
+      say(tip && all ? `${text} Vinkki: ${tip[0]!.toLowerCase()}${tip.slice(1)}` : text);
+      beep(sound);
+    }
+  }
+  // A new piece of `item`, or the placed piece `moving`, put where it covers cell x,y (a tap or a drop).
+  function placeAt(x: number, y: number, moving?: Furniture, item?: Item | null) {
+    const plan = building?.plan;
+    const f = moving ?? (item && { id: `f${Date.now()}`, item, x, y, turn: 0 });
+    if (!plan || !f) return;
+    const fit = fitNear(plan, furn, f, x, y);
+    if (!fit) { say(FIT_HINT[whyNotFit(plan, furn, { ...f, x, y }) ?? 'taken']); return; }
+    if (moving) { setSelPiece(null); furnish(furn.map((o) => (o.id === f.id ? fit : o)), 'Siirretty.'); return; }
+    // The chosen piece stays chosen while some are left (two chairs, two bedside tables).
+    const more = left(plan, furn, f.item) > 1;
+    if (!more && selItem === f.item) setSelItem(null);
+    const next = [...furn, fit];
+    // The last piece: say so instead of asking for the next one (furnish adds a tip if a room is still missing).
+    const last = (Object.keys(plan.pieces) as Item[]).every((i) => left(plan, next, i) <= 0);
+    furnish(next, last ? 'Kaikki huonekalut ovat paikallaan.'
+      : more ? 'Hyvä! Lisää vielä toinen.' : 'Hyvä! Valitse seuraava huonekalu alta.');
+  }
+  const tapCell = (x: number, y: number) => placeAt(x, y, furn.find((f) => f.id === selPiece), selItem);
+  // Dragging works like the other modes: past the tap threshold a ghost follows the finger, and the plan shows where it lands.
+  const dragPlan = (item: Item, id?: string): DOMAttributes<Element> => {
+    const end = () => { planDrag.current = null; setGhost(null); setPreview(null); };
+    const cell = (e: { clientX: number; clientY: number }) => {
+      const plan = building?.plan;
+      return plan && svgRef.current ? planCell(svgRef.current, plan.cols, plan.rows, e.clientX, e.clientY) : null;
+    };
+    return {
+      onPointerDown: (e) => {
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+        planDrag.current = { item, id, x: e.clientX, y: e.clientY, active: false };
+      },
+      onPointerMove: (e) => {
+        const d = planDrag.current;
+        const plan = building?.plan;
+        if (!d || !plan || !(d.active || isDrag(e.clientX - d.x, e.clientY - d.y))) return;
+        d.active = true;
+        setGhost({ x: e.clientX, y: e.clientY, label: ITEM_LABEL[item] });
+        const c = cell(e);
+        const f = furn.find((x) => x.id === id) ?? { id: '', item, x: 0, y: 0, turn: 0 };
+        setPreview(c && fitNear(plan, furn, f, c[0], c[1]));
+      },
+      onPointerUp: (e) => {
+        const d = planDrag.current;
+        end();
+        if (!d?.active) return;
+        wasDrag.current = true; setTimeout(() => { wasDrag.current = false; }, 50);
+        const c = cell(e);
+        if (!c) { say(id ? 'Huonekalu jäi paikalleen.' : 'Huonekalu palasi alas.'); return; }
+        placeAt(c[0], c[1], furn.find((x) => x.id === id), item);
+      },
+      onPointerCancel: end,
+      // Browser can drop capture without pointerup/cancel (gesture takeover); never leave the ghost hanging.
+      onLostPointerCapture: end,
+    };
+  };
+  function tapPiece(id: string) {
+    if (wasDrag.current) return; // the click that follows a drag is not a tap
+    const f = furn.find((x) => x.id === id);
+    if (!f || selPiece === id) { setSelPiece(null); say('Valitse huonekalu alta, tai napauta huonekalua kuvassa.'); return; }
+    setSelPiece(id); setSelItem(null);
+    say(`${ITEM_LABEL[f.item]} valittu. Napauta uutta paikkaa, tai käännä tai poista se.`);
+  }
+  function turnPiece() {
+    const plan = building?.plan;
+    const f = furn.find((x) => x.id === selPiece);
+    if (!plan || !f) return;
+    const t = turnNear(plan, furn, f);
+    if (t) furnish(furn.map((o) => (o.id === f.id ? t : o)), 'Käännetty.');
+    else say('Tässä ei ole tilaa kääntää. Siirrä se ensin toiseen kohtaan.');
+  }
+
   function paintPiece(id: string) {
     if (!shown || !project) return;
     const c = PALETTE[selColor] ?? PALETTE[1]!;
@@ -302,6 +423,7 @@ export default function App() {
   // Pick and new screen texts: title, new button, empty list, choose title.
   const T = runko ? ['Hirsityöt', 'Uusi runko', 'Ei vielä runkoja.', 'Valitse runko']
     : mode === 'sisa' ? ['Sisätyöt', 'Uusi huone', 'Ei vielä huoneita.', 'Valitse huone']
+    : mode === 'pohja' ? ['Sisusta', 'Uusi rakennus', 'Ei vielä rakennuksia.', 'Valitse rakennus']
     : ['Rakennukseni', 'Uusi rakennus', 'Ei vielä rakennuksia.', 'Valitse rakennus'];
   if (view === 'home') {
     body = (
@@ -323,6 +445,7 @@ export default function App() {
           <button className="main big1" onClick={() => { setMode(undefined); go('pick'); }}>🏠 Rakenna</button>
           <button className="main big1" onClick={() => { setMode('runko'); go('pick'); }}>🪓 Hirsityöt</button>
           <button className="main big1" onClick={() => { setMode('sisa'); go('pick'); }}>🔧 Sisätyöt</button>
+          <button className="main big1" onClick={() => { setMode('pohja'); go('pick'); }}>🛋️ Sisusta</button>
         </div>
       </>
     );
@@ -407,6 +530,7 @@ export default function App() {
         <div className="bar"><button onClick={() => go(helpBack)}>← Takaisin</button><h1>{topic === 'runko' ? 'Rakennusohje' : topic === 'sisa' ? 'Sisätyöohje' : 'Ohje'}</h1></div>
         {topic === 'menu' && list(MENU_HELP)}
         {topic === 'build' && list(BUILD_HELP)}
+        {topic === 'pohja' && list([...POHJA_HELP.slice(0, 2), ...(helpBack === 'game' && building?.plan?.recipes.map((r): [string, string] => [ROOM_LABEL[r.room], r.text]) || []), ...POHJA_HELP.slice(2)])}
         {topic === 'sisa' && (
           <>
             {list(BUILD_HELP.slice(0, 3))}
@@ -473,6 +597,45 @@ export default function App() {
         )}
       </>
     );
+  } else if (building?.plan && project) {
+    const plan = building.plan;
+    const count = `Huoneet ${plan.goal.length - missing(plan, furn).length} / ${plan.goal.length}`;
+    const items = (Object.keys(plan.pieces) as Item[]).filter((i) => left(plan, furn, i) > 0);
+    body = (
+      <>
+        <div className="bar">
+          <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
+          {help}<span className="cnt">{count}</span>
+        </div>
+        {side(count)}
+        <div className="stage">
+          <Scene building={building} project={project} svgRef={svgRef} placing={!!(selItem || selPiece)} selPiece={selPiece} onCell={tapCell} onPiece={tapPiece}
+            grab={(id) => dragPlan(furn.find((f) => f.id === id)!.item, id)} preview={preview} />
+        </div>
+        <div className="tray" role="group" aria-label={selPiece ? 'Valittu huonekalu' : 'Huonekalut'}>
+          <div ref={trayRef} className={trayScrolls ? 'strip scrolls' : 'strip'}>
+            {selPiece ? (
+              <>
+                <button className="piece" onClick={turnPiece}><b aria-hidden="true">↻</b><span>Käännä</span></button>
+                <button className="piece" onClick={() => { setSelPiece(null); furnish(furn.filter((f) => f.id !== selPiece), 'Poistettu.'); }}><b aria-hidden="true">✕</b><span>Poista</span></button>
+                <button className="piece" onClick={() => tapPiece(selPiece)}><b aria-hidden="true">✓</b><span>Valmis</span></button>
+              </>
+            ) : items.length ? items.map((i) => (
+              <button key={i} className="piece drag" aria-pressed={selItem === i} aria-label={`${ITEM_LABEL[i]}, ${left(plan, furn, i)} jäljellä`} {...dragPlan(i)}
+                onClick={() => { if (wasDrag.current) return; setSelItem(i); say(`Napauta kohtaa, johon ${ITEM_LABEL[i].toLowerCase()} tulee.`); }}>
+                <ItemIcon item={i} /><span>{ITEM_LABEL[i]} × {left(plan, furn, i)}</span>
+              </button>
+            )) : <p>Kaikki huonekalut ovat paikallaan.</p>}
+          </div>
+          <button disabled={!history.length} onClick={() => {
+            update({ ...project, furniture: history[history.length - 1] });
+            setHistory((h) => h.slice(0, -1)); setSelPiece(null); say('Peruttu.');
+          }}>↶ Peru</button>
+          {/* While a piece is chosen its own ✓ Valmis ends the edit; the building's one is hidden so the two never mix. */}
+          {!selPiece && <button onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ {building.name} valmis</button>}
+        </div>
+      </>
+    );
   } else if (building && shown && project) {
     const count = `Palat ${shown.placed.length} / ${building.targets.length}`;
     body = (
@@ -507,7 +670,7 @@ export default function App() {
                   onPointerMove={(e) => {
                     const d = drag.current;
                     if (!d) return;
-                    if (d.active || isDrag(e.clientX - d.x, e.clientY - d.y)) { d.active = true; setSelKind(k); setGhost({ x: e.clientX, y: e.clientY, kind: k }); }
+                    if (d.active || isDrag(e.clientX - d.x, e.clientY - d.y)) { d.active = true; setSelKind(k); setGhost({ x: e.clientX, y: e.clientY, label: KIND_LABEL[k] }); }
                   }}
                   onPointerUp={(e) => {
                     const d = drag.current;
@@ -551,7 +714,7 @@ export default function App() {
   return (
     <main className={view === 'game' || view === 'carve' || view === 'fix' ? 'play' : undefined}>
       <div id="app">{body}</div>
-      {ghost && <div className="ghost" style={{ left: ghost.x, top: ghost.y }}>{KIND_LABEL[ghost.kind]}</div>}
+      {ghost && <div className="ghost" style={{ left: ghost.x, top: ghost.y }}>{ghost.label}</div>}
     </main>
   );
 }
