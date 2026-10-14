@@ -17,7 +17,7 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
 - `src/game/` – rules and data, no React, no DOM. Keep it that way so it stays testable.
   - `types.ts` – `Building`, `Target`, `Project`, `SaveData`
   - `buildings.ts` – buildings as data (`BUILDINGS`), palette, labels
-  - `rules.ts` – `available`, `canPlace`, `nearestTarget` (snapping), `place`, `undo`, `paint`
+  - `rules.ts` – `available`, `openTargets`, `canPlace`, `nearestTarget` (snapping), `place`, `undo`, `paint`, tray and hint (`trayKinds`, `pickKind`, `hintFor`)
   - `storage.ts` – load/save; never throws, drops unknown or malformed data
   - `gesture.ts` – tap vs drag threshold
 - `src/Scene.tsx` – SVG drawing only (viewBox `0 0 400 300`). No game rules here.
@@ -37,7 +37,7 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
 ## Add a building
 1. Add a `Building` in `src/game/buildings.ts` (reuse the kinds `log | door | window | roof | chimney | fire | pier | porch`; `lean: true` makes a single-slope roof) and put it in `BUILDINGS`.
 2. A new piece kind needs: `PieceKind` in `types.ts`, a label and default colour in `buildings.ts`, and drawing in `Scene.tsx` (`Shape`, `Slot`, `ICON`).
-3. Add a test for the new build order. Saves of a changed building reopen in build mode (unknown pieces dropped, other pieces kept), and buildings unknown to this version are kept untouched. Only change `KEY` in `storage.ts` if the save format itself changes, since that hides every existing save.
+3. Add a test for the new build order. Saves of a changed building reopen in build mode (unknown pieces dropped, other pieces kept), and saved buildings this version cannot read (unknown building, unknown phase) are kept untouched. Only change `KEY` in `storage.ts` if the save format itself changes, since that hides every existing save.
 
 ## Rules that must not regress
 - All UI text is Finnish, short, one instruction at a time, verbs like "Valitse", "Napauta", "Maalaa". Never rely on colour alone (use labels, ＋ marks, ✓).

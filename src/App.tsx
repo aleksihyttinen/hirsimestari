@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, SHUTON, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
-import { available, availableKinds, canPlace, choices, isPlaced, nearestTarget, needsCarve, paint, place, remainingKinds, undo, unplaced, whyNot } from './game/rules';
+import { canPlace, choices, hintFor, isPlaced, nearestTarget, needsCarve, openTargets, paint, pickKind, place, placeHint, trayKinds, undo, unplaced, whyNot } from './game/rules';
 import { loadData, newProject, saveData, type Store } from './game/storage';
 import type { Building, PieceKind, Project, SaveData, Settings } from './game/types';
 import { CarveLog, FixPiece, Icon, PartIcon, Scene, ToolIcon } from './Scene';
@@ -97,20 +97,6 @@ const tryHint = (b: Building, lit: PieceKind[]) => {
 
 const status = (b: Building, p: Project) =>
   p.phase === 'done' ? '✓ Valmis' : p.phase === 'paint' ? 'Maalattavana' : `Kesken: ${p.placed.length} / ${b.targets.length}`;
-
-// "Aseta" fits both tapping and dragging; naming the piece and the ＋ keeps it concrete.
-const placeHint = (k: PieceKind) => `Aseta ${KIND_LABEL[k].toLowerCase()} kohtaan, jossa on ＋.`;
-/** The piece in use: the only open kind, else the player's choice if it is still open. */
-const pickKind = (kinds: PieceKind[], selKind: PieceKind | null) =>
-  kinds.length === 1 ? kinds[0]! : selKind && kinds.includes(selKind) ? selKind : null;
-/** Tray kinds: Hirsityöt offers every remaining piece, the others only what fits now. Shut-offs are tapped on the wall, not in the tray. */
-const trayKinds = (b: Building, p: Project) => (b.mode === 'runko' ? remainingKinds(b, p) : availableKinds(b, p)).filter((k) => !SHUTOFF[k]);
-const hintFor = (b: Building, p: Project, selKind: PieceKind | null) => {
-  const off = available(b, p).find((t) => SHUTOFF[t.kind]);
-  if (off) return (off.on ? SHUTON : SHUTOFF)[off.kind]!;
-  const k = pickKind(trayKinds(b, p), selKind);
-  return k ? placeHint(k) : 'Valitse pala alta.';
-};
 
 export default function App() {
   const [data, setData] = useState<SaveData>(() => loadData(store()));
@@ -283,8 +269,7 @@ export default function App() {
     pt.x = cx; pt.y = cy;
     const p = pt.matrixTransform(m.inverse());
     // Hirsityöt snaps to any empty slot so a too-early drop gets the "Ensin tarvitaan" hint.
-    const pool = building.mode === 'runko' ? building.targets.filter((x) => !isPlaced(project, x.id)) : undefined;
-    const t = nearestTarget(building, project, kind, p.x, p.y, 80, pool);
+    const t = nearestTarget(building, project, kind, p.x, p.y, 80, openTargets(building, project));
     if (t) doPlace(t.id, kind); else say('Kokeile uudelleen. ' + placeHint(kind));
   }
   function paintPiece(id: string) {
@@ -389,7 +374,7 @@ export default function App() {
         <div className="col">
           {tog('sound', '🔊 Äänet')}{tog('speech', '🗣 Puhe')}{tog('big', '🔠 Suuri teksti')}
           <button className="tog" onClick={() => {
-            if (armed === 'all') { setData((d) => ({ ...d, projects: [] })); setArmed(null); } else setArmed('all');
+            if (armed === 'all') { setData((d) => ({ ...d, projects: [], keep: [] })); setArmed(null); } else setArmed('all');
           }}><span>🗑 Poista kaikki rakennukset</span><b>{armed === 'all' ? 'Varmista' : 'Poista'}</b></button>
         </div>
       </>

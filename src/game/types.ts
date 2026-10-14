@@ -61,6 +61,6 @@ export interface Settings {
 export interface SaveData {
   projects: Project[];
   settings: Settings;
-  /** Saved buildings this version does not know (e.g. from a newer version); written back untouched. */
+  /** Saved buildings this version cannot read (e.g. from a newer version); written back untouched. */
   keep: unknown[];
 }

@@ -40,7 +40,8 @@ export function loadData(store: Store | null): SaveData {
       for (const v of raw.projects) {
         const p = cleanProject(v);
         if (p) d.projects.push(p);
-        else if (isRecord(v) && typeof v.buildingId === 'string' && !getBuilding(v.buildingId)) d.keep.push(v);
+        // Unknown building or a field this version cannot read (e.g. after a rollback): keep it, never erase it.
+        else if (isRecord(v)) d.keep.push(v);
       }
     if (isRecord(raw.settings)) for (const k of ['sound', 'big', 'speech'] as const) d.settings[k] = raw.settings[k] === true;
   } catch { /* corrupt or blocked storage: start fresh */ }

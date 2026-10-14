@@ -1,4 +1,4 @@
-import { KIND_LABEL } from './buildings';
+import { KIND_LABEL, SHUTOFF, SHUTON } from './buildings';
 import type { Building, Phase, PieceKind, Project, Target } from './types';
 
 /** Phase after the last piece: houses go on to painting, frames and rooms are done. */
@@ -9,6 +9,10 @@ export const isPlaced = (p: Project, id: string) => p.placed.includes(id);
 /** Targets that can take a piece now: not filled and all prerequisites placed. */
 export const available = (b: Building, p: Project): Target[] =>
   b.targets.filter((t) => !isPlaced(p, t.id) && t.after.every((a) => isPlaced(p, a)));
+
+/** Slots that take a piece now. Hirsityöt opens every empty slot: finding the order is the player's challenge. */
+export const openTargets = (b: Building, p: Project): Target[] =>
+  b.mode === 'runko' ? b.targets.filter((t) => !isPlaced(p, t.id)) : available(b, p);
 
 export const availableKinds = (b: Building, p: Project): PieceKind[] => [...new Set(available(b, p).map((t) => t.kind))];
 
@@ -76,3 +80,17 @@ export function shuffle<T>(xs: T[], rand = Math.random): T[] {
 /** Sisätyöt choices: the right item and two others, in random order, so a guess is never a coin flip. */
 export const choices = <T>(right: T, all: T[], rand = Math.random): T[] =>
   shuffle([right, ...shuffle(all.filter((x) => x !== right), rand).slice(0, 2)], rand);
+
+// "Aseta" fits both tapping and dragging; naming the piece and the ＋ keeps it concrete.
+export const placeHint = (k: PieceKind) => `Aseta ${KIND_LABEL[k].toLowerCase()} kohtaan, jossa on ＋.`;
+/** The piece in use: the only open kind, else the player's choice if it is still open. */
+export const pickKind = (kinds: PieceKind[], selKind: PieceKind | null) =>
+  kinds.length === 1 ? kinds[0]! : selKind && kinds.includes(selKind) ? selKind : null;
+/** Tray kinds: Hirsityöt offers every remaining piece, the others only what fits now. Shut-offs are tapped on the wall, not in the tray. */
+export const trayKinds = (b: Building, p: Project) => (b.mode === 'runko' ? remainingKinds(b, p) : availableKinds(b, p)).filter((k) => !SHUTOFF[k]);
+export const hintFor = (b: Building, p: Project, selKind: PieceKind | null) => {
+  const off = available(b, p).find((t) => SHUTOFF[t.kind]);
+  if (off) return (off.on ? SHUTON : SHUTOFF)[off.kind]!;
+  const k = pickKind(trayKinds(b, p), selKind);
+  return k ? placeHint(k) : 'Valitse pala alta.';
+};

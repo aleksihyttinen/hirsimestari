@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type Ref } from 'react';
 import { DEFAULT_COLOR, FIX, SHUTOFF, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
-import { available, isPlaced } from './game/rules';
+import { isPlaced, openTargets } from './game/rules';
 import type { Building, PieceKind, Project, Target } from './game/types';
 
 const ST = { stroke: '#5a3a1c', strokeWidth: 2.5, strokeLinejoin: 'round' as const };
@@ -400,8 +400,7 @@ export function Scene({ building, project, selKind = null, thumb = false, svgRef
   };
   const on = (t: Target) =>
     t.kind in SHUTOFF ? shutOn(t.kind) : (POWERED_BY[t.kind] ?? [t.kind]).some((k) => lit.includes(k));
-  // Hirsityöt shows every empty slot: finding the right order is the player's challenge.
-  const open = thumb || project.phase !== 'build' ? [] : (building.mode === 'runko' ? building.targets : available(building, project)).map((t) => t.id);
+  const open = thumb || project.phase !== 'build' ? [] : openTargets(building, project).map((t) => t.id);
   return (
     <svg ref={svgRef} viewBox={thumb ? '40 10 320 280' : '0 0 400 300'} role={thumb ? 'img' : 'group'} aria-label={building.name} aria-hidden={thumb || undefined}>
       {/* A room: log wall seen from inside and a plank floor; outside: grass. */}

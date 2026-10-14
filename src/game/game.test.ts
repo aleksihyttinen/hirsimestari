@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_LABEL, MATERIALS, SHUTOFF, TOOLS, aitta, keittio, kylpyhuone, laavu, loylyhuone, mokki, pirtti, sauna, talorunko } from './buildings';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_LABEL, MATERIALS, SHUTOFF, SHUTON, TOOLS, aitta, keittio, kylpyhuone, laavu, loylyhuone, mokki, pirtti, sauna, talorunko } from './buildings';
 import { isDrag } from './gesture';
-import { available, availableKinds, canPlace, choices, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
+import { available, availableKinds, canPlace, choices, hintFor, nearestTarget, needsCarve, paint, place, remainingKinds, undo, whyNot } from './rules';
 import { loadData, newProject, saveData, type Store } from './storage';
 import type { Project } from './types';
 
@@ -119,6 +119,14 @@ describe('saving', () => {
     expect(d.projects.map((p) => p.id)).toEqual(['s']);
     saveData(store, { ...d, projects: [] });
     expect(loadData(store).keep).toEqual([future]);
+  });
+  it('keeps a known building it cannot read instead of erasing it', () => {
+    const store = fakeStore();
+    const odd = { id: 'o', buildingId: 'sauna', placed: [], colors: {}, phase: 'x' };
+    store.setItem('hirsimestari-v1', JSON.stringify({ projects: [odd] }));
+    const d = loadData(store);
+    expect(d.projects).toEqual([]);
+    expect(d.keep).toEqual([odd]);
   });
   it('falls back to an empty save for missing, malformed or outdated data', () => {
     const store = fakeStore();
@@ -248,6 +256,7 @@ describe('Sisätyöt', () => {
       for (const t of b.targets.filter((x) => !x.on)) p = place(b, p, t.id);
       expect(p.phase, b.id).toBe('build');
       expect(available(b, p).map((t) => t.id)).toEqual([water ? 'valve-on' : 'breaker-on']);
+      expect(hintFor(b, p, null), b.id).toBe(water ? SHUTON.valve : SHUTON.breaker);
       if (water) p = place(b, p, 'valve-on');
       expect(available(b, p).map((t) => t.id)).toEqual(['breaker-on']);
       p = place(b, p, 'breaker-on');
