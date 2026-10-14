@@ -623,6 +623,15 @@ const PART_SHAPE: Record<Material | FixTool, JSX.Element> = {
       <path d="M58 16h20l8 8h-14v10h14l-8 8h-20z" fill={STEEL} {...ST} />
     </>
   ),
+  // Saumapistooli: a cartridge in a frame, with a trigger and a nozzle.
+  pistooli: (
+    <>
+      <rect x={14} y={12} width={50} height={18} rx={4} fill="#f4f0e8" {...ST} />
+      <polygon points="64,17 84,20 84,22 64,25" fill="#e6b422" {...ST} />
+      <rect x={6} y={8} width={6} height={26} fill={STEEL} {...ST} />
+      <path d="M20 30l-6 20h10l6-20z" fill="#c0392b" {...ST} />
+    </>
+  ),
   saha: TOOL_SHAPE.saha,
   leikkuri: (
     <>
@@ -652,10 +661,12 @@ export function FixPiece({ kind, done, active, label, onSpot }: {
         const x = 65 + 3 * (b.x + b.w * fx);
         const y = 16 + 3 * (b.y + b.h * fy);
         if (done.includes(i))
-          return f.material === 'pultti' || f.material === 'liitin' ? <g key={i}>{hex(x, y, 11)}</g> : (
+          return f.material === 'liima' ? <ellipse key={i} cx={x} cy={y} rx={16} ry={7} fill="#f4f0e8" {...ST} /> : f.material === 'pultti' || f.material === 'liitin' ? <g key={i}>{hex(x, y, 11)}</g> : (
             <g key={i}>
               <circle cx={x} cy={y} r={10} fill={STEEL} {...ST} />
-              <path d={`M${x - 6} ${y}h12M${x} ${y - 6}v12`} stroke="#5a3a1c" strokeWidth={2.5} />
+              {/* A nail (also the cable clip's) has a flat head; only screws get the cross. */}
+              {f.material !== 'naula' && f.material !== 'kiinnike' &&
+                <path d={`M${x - 6} ${y}h12M${x} ${y - 6}v12`} stroke="#5a3a1c" strokeWidth={2.5} />}
             </g>
           );
         if (!active) return null;

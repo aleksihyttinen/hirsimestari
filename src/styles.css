@@ -40,11 +40,14 @@ main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
 .tray,.palette,.menu{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}
 .piece{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:130px;user-select:none}
-.piece[aria-pressed="true"]{background:#ffe9a8;color:#2b2118;border-width:6px;border-color:var(--accent)}
+.piece[aria-pressed="true"]{background:#ffe9a8;color:#2b2118;border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent)}
+/* Selection must not change a button's size, or the tray reflows and the picture shrinks: thicker border is a shadow, ✓ is an overlay. */
+.piece,.sw{position:relative}
+.piece[aria-pressed="true"]::after,.sw[aria-pressed="true"]::after{content:"✓"/"";position:absolute;top:2px;right:6px;font-weight:800;font-size:1.1rem;line-height:1}
 .piece svg{width:90px;height:56px}
 .sw{width:128px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.8rem}
 .sw i{width:56px;height:30px;border-radius:8px;border:2px solid var(--line);display:block}
-.sw[aria-pressed="true"]{border-width:6px;border-color:var(--accent)}
+.sw[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent)}
 .card{flex:1 1 240px;display:flex;flex-direction:column;gap:8px}
 .proj{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%}
 .proj svg{width:100%;max-width:260px;height:auto;background:#dcebf2;border-radius:12px}

@@ -68,10 +68,11 @@ const VEISTO: [string, ReactNode][] = [
 const SISA: [string, ReactNode][] = [
   ['Ensin turvallisuus', 'Katkaise virta sähkökeskuksesta ja sulje vesi pääventtiilistä ennen töitä.'],
   ['Kaapeli', <>Kiinnitetään seinään <b>kaapelikiinnikkeillä</b>. Ne lyödään <b>vasaralla</b>.</>],
-  ['Katkaisija, pistorasia, valaisin, palovaroitin, ohjauskeskus ja poistoventtiili', <>Kiinnitetään <b>puuruuveilla</b> ja <b>akkuruuvinvääntimellä</b>.</>],
+  ['Katkaisija, pistorasia, valaisin, palovaroitin, ohjauskeskus ja poistoventtiili', <>Pieniä ja kevyitä, siksi ne kiinnitetään <b>ruuveilla</b>. Ne ruuvataan <b>akkuruuvinvääntimellä</b>.</>],
   ['Vesiputki', <>Kiinnitetään <b>putkenkannakkeilla</b>. Ne ruuvataan <b>akkuruuvinvääntimellä</b>.</>],
   ['Lämminvesivaraaja ja pesuallas', <>Painavia, siksi ne kiinnitetään <b>pulteilla</b>. Mutterit kiristetään <b>jakoavaimella</b>.</>],
-  ['Tiskiallas, WC-istuin ja kiuas', <>Kiinnitetään <b>pitkillä ruuveilla</b> ja <b>akkuruuvinvääntimellä</b>.</>],
+  ['Tiskiallas ja kiuas', <>Isoja ja seisovat lattialla, siksi ne kiinnitetään <b>pitkillä ruuveilla</b>. Ne ruuvataan <b>akkuruuvinvääntimellä</b>.</>],
+  ['WC-istuin', <>Liimataan lattiaan <b>liimalla</b>, ettei lattian vesieristykseen tule reikiä. Liima puristetaan <b>saumapistoolilla</b>.</>],
   ['Hana ja suihku', <>Liitetään putkeen <b>puristusliittimellä</b>. Se kiristetään <b>jakoavaimella</b>.</>],
   ['Lauteet', <>Naulataan <b>nauloilla</b> ja <b>vasaralla</b>.</>],
   ['Lopuksi', 'Kun kaikki on kiinni, avaa vesi ja kytke virta takaisin.'],
@@ -244,7 +245,7 @@ export default function App() {
     if (!fixing || !f) return;
     if (id !== (fixing.step ? f.tool : f.material)) {
       // On the tool step, name the chosen fastener again: some players forget it.
-      say(`${FIX_NAME[id]} ei sovi ${f.wrong}. ${fixing.step ? toolHint(f.material) : 'Valitse toinen.'}`);
+      say(`${FIX_NAME[id]} ei sovi ${f.wrong}. ${fixing.step ? toolHint(f.material) : MATERIALS.find((m) => m.id === f.material)!.why}`);
       return;
     }
     beep(sound, 440, 0.08);
@@ -441,7 +442,7 @@ export default function App() {
           {TOOLS.map((t) => (
             <button key={t.id} className="piece" aria-pressed={carving.tool === t.id}
               onClick={() => { setCarving({ ...carving, tool: t.id }); say(s.hint); }}>
-              <ToolIcon tool={t.id} /><span>{carving.tool === t.id ? '✓ ' : ''}{t.name}</span>
+              <ToolIcon tool={t.id} /><span>{t.name}</span>
             </button>
           ))}
         </div>
@@ -527,7 +528,7 @@ export default function App() {
           <div className="palette" role="group" aria-label="Värit">
             {PALETTE.map((c, i) => (
               <button key={c.name} className="sw" aria-pressed={selColor === i} onClick={() => { setSelColor(i); say('Napauta osaa kuvassa.'); }}>
-                <i style={{ background: c.value ?? 'linear-gradient(135deg, #c98a4b 50%, #bfe3f5 50%)' }} />{selColor === i ? '✓ ' : ''}{c.name}
+                <i style={{ background: c.value ?? 'linear-gradient(135deg, #c98a4b 50%, #bfe3f5 50%)' }} />{c.name}
               </button>
             ))}
             <button className="main" onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ Valmis</button>

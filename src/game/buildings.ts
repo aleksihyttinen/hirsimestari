@@ -34,25 +34,26 @@ export const CARVE_STEPS: { name: string; tool: Tool; hint: string; wrong: strin
 
 /** Sisätyöt fastening. Each step offers the right item and one or two others (`choices` in rules.ts). */
 export type Material = 'naula' | 'puuruuvi' | 'pitkaruuvi' | 'pultti' | 'kiinnike' | 'kannake' | 'liitin' | 'teippi' | 'liima';
-/** `to` is the name in allative: completes "Valitse sopiva työkalu …". */
-export const MATERIALS: { id: Material; name: string; to: string }[] = [
+/** `to` is the name in allative: completes "Valitse sopiva työkalu …". `why` follows a wrong pick when this is the right one. */
+export const MATERIALS: { id: Material; name: string; to: string; why?: string }[] = [
   { id: 'teippi', name: 'Teippi', to: 'teipille' },
-  { id: 'puuruuvi', name: 'Puuruuvi', to: 'puuruuville' },
-  { id: 'kannake', name: 'Putkenkannake', to: 'putkenkannakkeelle' },
-  { id: 'naula', name: 'Naula', to: 'naulalle' },
-  { id: 'pultti', name: 'Pultti ja mutteri', to: 'pultille ja mutterille' },
-  { id: 'kiinnike', name: 'Kaapelikiinnike', to: 'kaapelikiinnikkeelle' },
-  { id: 'liima', name: 'Liima', to: 'liimalle' },
-  { id: 'pitkaruuvi', name: 'Pitkä ruuvi', to: 'pitkälle ruuville' },
-  { id: 'liitin', name: 'Puristusliitin', to: 'puristusliittimelle' },
+  { id: 'puuruuvi', name: 'Ruuvi', to: 'ruuville', why: 'Pieni ja kevyt osa kiinnitetään ruuvilla.' },
+  { id: 'kannake', name: 'Putkenkannake', to: 'putkenkannakkeelle', why: 'Putki pysyy seinässä putkenkannakkeella.' },
+  { id: 'naula', name: 'Naula', to: 'naulalle', why: 'Puu kiinnitetään puuhun naulalla.' },
+  { id: 'pultti', name: 'Pultti ja mutteri', to: 'pultille ja mutterille', why: 'Painava osa seinällä tarvitsee pultin.' },
+  { id: 'kiinnike', name: 'Kaapelikiinnike', to: 'kaapelikiinnikkeelle', why: 'Kaapeli pysyy seinässä kaapelikiinnikkeellä.' },
+  { id: 'liima', name: 'Liima', to: 'liimalle', why: 'WC-istuin liimataan, ettei lattiaan tule reikiä.' },
+  { id: 'pitkaruuvi', name: 'Pitkä ruuvi', to: 'pitkälle ruuville', why: 'Iso osa lattialla tarvitsee pitkän ruuvin.' },
+  { id: 'liitin', name: 'Puristusliitin', to: 'puristusliittimelle', why: 'Putkeen liitetään puristusliittimellä.' },
 ];
-export type FixTool = 'vasara' | 'ruuvain' | 'jakoavain' | 'saha' | 'leikkuri';
+export type FixTool = 'vasara' | 'ruuvain' | 'jakoavain' | 'saha' | 'leikkuri' | 'pistooli';
 export const FIX_TOOLS: { id: FixTool; name: string }[] = [
   { id: 'jakoavain', name: 'Jakoavain' },
   { id: 'saha', name: 'Saha' },
   { id: 'ruuvain', name: 'Akkuruuvinväännin' },
   { id: 'leikkuri', name: 'Sivuleikkurit' },
   { id: 'vasara', name: 'Vasara' },
+  { id: 'pistooli', name: 'Saumapistooli' },
 ];
 /**
  * A fastened piece needs this material, then this tool, then a tap on each spot. Spots are fractions (0-1) of the
@@ -69,7 +70,7 @@ export const FIX: Partial<Record<PieceKind, { material: Material; tool: FixTool;
   heater: { material: 'pultti', tool: 'jakoavain', spots: [[0.5, 0.1], [0.5, 0.9]], wrong: 'varaajan kiinnitykseen' },
   sink: { material: 'pitkaruuvi', tool: 'ruuvain', spots: [[0.15, 0.45], [0.85, 0.45]], wrong: 'kaapin kiinnitykseen' },
   tap: { material: 'liitin', tool: 'jakoavain', spots: [[0.75, 0.92]], wrong: 'hanan liitokseen' },
-  wc: { material: 'pitkaruuvi', tool: 'ruuvain', spots: [[0.15, 0.9], [0.85, 0.9]], wrong: 'WC-istuimen kiinnitykseen' },
+  wc: { material: 'liima', tool: 'pistooli', spots: [[0.15, 0.9], [0.85, 0.9]], wrong: 'WC-istuimen kiinnitykseen' },
   shower: { material: 'liitin', tool: 'jakoavain', spots: [[0.5, 0.82]], wrong: 'suihkun liitokseen' },
   basin: { material: 'pultti', tool: 'jakoavain', spots: [[0.1, 0.2], [0.9, 0.2]], wrong: 'pesualtaan kiinnitykseen' },
   vent: { material: 'puuruuvi', tool: 'ruuvain', spots: [[0.15, 0.5], [0.85, 0.5]], wrong: 'venttiilin kiinnitykseen' },

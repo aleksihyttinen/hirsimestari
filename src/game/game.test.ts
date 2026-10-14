@@ -260,7 +260,7 @@ describe('Sisätyöt', () => {
         const f = FIX[t.kind];
         expect(!!f, `${b.id}/${t.id}`).toBe(!SHUTOFF[t.kind]);
         if (!f) continue;
-        expect(MATERIALS.some((m) => m.id === f.material) && FIX_TOOLS.some((x) => x.id === f.tool)).toBe(true);
+        expect(MATERIALS.find((m) => m.id === f.material)?.why && FIX_TOOLS.some((x) => x.id === f.tool)).toBeTruthy();
         expect(f.spots.length >= 1 && f.spots.length <= 3).toBe(true);
         for (const [x, y] of f.spots) expect(x >= 0 && x <= 1 && y >= 0 && y <= 1).toBe(true);
       }
