@@ -21,16 +21,18 @@ npm run preview    # kokeile tuotantoversiota (PWA ja offline toimivat vain täs
 
 ## Rakenne
 
-- `src/game/` – säännöt ja data ilman Reactia: `rules.ts` (sijoitus, tarttuminen, peruminen, maalaus), `buildings.ts` (rakennukset dataa), `storage.ts` (localStorage), `gesture.ts` (napautus vai veto).
+- `src/game/` – säännöt ja data ilman Reactia: `rules.ts` (sijoitus, tarttuminen, peruminen, maalaus), `buildings.ts` (rakennukset dataa), `plan.ts` (Sisusta: huonekalujen sijoitus ja huoneiden tunnistus), `storage.ts` (localStorage), `gesture.ts` (napautus vai veto).
 - `src/Scene.tsx` – SVG-piirto (viewBox 400×300), erillään säännöistä.
 - `src/App.tsx` – näkymät: alkuvalikko, pelitavan valinta, omat rakennukset, uusi rakennus, asetukset, peli, veisto, kiinnitys, ohje.
 
 ## Päätökset
 
-- Kolme pelitapaa: Rakenna (talot), Hirsityöt (hirsirungot, joissa järjestys pitää päätellä itse; erikoishirret voi halutessaan veistää; runkoja ei maalata) ja Sisätyöt (huoneen sähkö- ja vesityöt).
-- Sisätyöt: Keittiö, Kylpyhuone ja Löylyhuone (sähkökiuas). Ensin katkaistaan virta ja suljetaan vesi napauttamalla sähkökeskusta ja pääventtiiliä. Jokainen osa kiinnitetään: valitse oikea kiinnike ja työkalu kolmesta vaihtoehdosta (järjestys vaihtuu), ja napauta kiinnityskohdat. Valmiissa huoneessa voi kokeilla valoa, vettä ja kiuasta.
+- Neljä pelitapaa: Rakenna (talot), Hirsityöt (hirsirungot, joissa järjestys pitää päätellä itse; erikoishirret voi halutessaan veistää; runkoja ei maalata), Sisätyöt (huoneen sähkö- ja vesityöt) ja Sisusta (pohjapiirroksen kalustus).
+- Hirsityöt: Aitan runko (kulmakivillä), Mökin runko ja Omakotitalon runko.
+- Sisätyöt: Keittiö, Kylpyhuone ja Sauna (sähkökiuas). Ensin katkaistaan virta ja suljetaan vesi napauttamalla sähkökeskusta ja pääventtiiliä. Jokainen osa kiinnitetään: valitse oikea kiinnike ja työkalu kolmesta vaihtoehdosta (järjestys vaihtuu), ja napauta kiinnityskohdat. Lopuksi vesi avataan ja virta kytketään takaisin. Valmiissa huoneessa voi kokeilla valoa, vettä ja kiuasta.
+- Sisusta: Pihasauna, Mökki ja Omakotitalo ylhäältä nähtynä. Huonekalut vedetään tai napautetaan vapaasti paikoilleen, ja niitä voi siirtää, kääntää ja poistaa. Kun huoneessa on oikeat huonekalut (esim. sänky ja yöpöytä vierekkäin), peli tunnistaa huoneen ja kehuu. Pesutilat ovat valmiina.
 - Jokaisessa näkymässä on ?-nappi, joka avaa siihen sopivan ohjeen.
-- Rakennukset: Laavu (helpoin: hirret, katto, nuotio), Sauna (laituri järvelle, savupiippu) ja Mökki (kaksi ikkunaa, kuisti, savupiippu).
+- Rakenna: Laavu (helpoin: hirret, katto, nuotio), Rantasauna (laituri järvelle, savupiippu) ja Mökki (kaksi ikkunaa, kuisti, savupiippu).
 - Asetuksissa voi laittaa päälle puheen, joka lukee ohjeen ääneen (Papunetin äänituen tapaan).
 - Palat asetetaan järjestyksessä: hirret alhaalta ylös, sitten ovi ja ikkuna, lopuksi katto. Näkyvissä on vain seuraava mahdollinen paikka.
 - Tallennus: jokainen siirto tallentuu. Valmiin rakennuksen voi avata ja maalata uudelleen.

@@ -5,9 +5,9 @@ import { fitNear, left, missing, recognized, turnNear, whyNotFit } from './game/
 import { canPlace, choices, hintFor, isPlaced, nearestTarget, needsCarve, openTargets, paint, pickKind, place, placeHint, trayKinds, undo, unplaced, whyNot } from './game/rules';
 import { loadData, newProject, saveData, type Store } from './game/storage';
 import type { Building, Furniture, Item, PieceKind, Project, SaveData, Settings } from './game/types';
-import { CarveLog, FixPiece, Icon, ItemIcon, PartIcon, Scene, ToolIcon, planCell } from './Scene';
+import { CarveLog, FixPiece, Icon, ItemIcon, PartIcon, Scene, ToolIcon, Outside, planCell } from './Scene';
 
-type View = 'home' | 'modes' | 'pick' | 'new' | 'settings' | 'game' | 'carve' | 'fix' | 'help';
+type View = 'home' | 'modes' | 'pick' | 'new' | 'settings' | 'game' | 'carve' | 'fix' | 'help' | 'finish';
 
 const store = (): Store | null => {
   try { return window.localStorage; } catch { return null; }
@@ -53,7 +53,7 @@ const POHJA_HELP: [string, string][] = [
   ['Siirrä ja käännä', 'Vedä huonekalu uuteen paikkaan. Tai napauta sitä ja paina Käännä tai Poista. Valmis lopettaa muokkauksen.'],
   ['Muut', 'Muut huonekalut sopivat mihin tahansa huoneeseen.'],
   ['Peru', 'Peru kumoaa viimeisimmän muutoksen.'],
-  ['Valmis', 'Paina Valmis, kun olet tyytyväinen. Voit jatkaa myöhemmin.'],
+  ['Valmis', 'Kun kaikki huoneet ovat valmiina, Valmis tulee ylös. Voit jatkaa myöhemmin.'],
 ];
 const FIT_HINT = {
   wall: 'Tähän se ei mahdu. Kokeile toista kohtaa.',
@@ -150,6 +150,7 @@ export default function App() {
   const [trayScrolls, setTrayScrolls] = useState(false);
 
   const { sound } = data.settings;
+  const still = data.settings.still || matchMedia('(prefers-reduced-motion: reduce)').matches;
   useEffect(() => saveData(store(), data), [data]);
   useEffect(() => {
     // Another open copy of the game saved: take its data so neither copy overwrites the other's progress.
@@ -157,12 +158,14 @@ export default function App() {
     window.addEventListener('storage', reload);
     return () => window.removeEventListener('storage', reload);
   }, []);
-  useEffect(() => {
-    if (!data.settings.speech || !msg.text || (view !== 'game' && view !== 'carve' && view !== 'fix')) return;
+  const speak = (text: string) => {
     try {
       speechSynthesis.cancel();
-      speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance(msg.text.replace('＋', 'plus')), { lang: 'fi-FI' }));
+      speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance(text.replace('＋', 'plus')), { lang: 'fi-FI' }));
     } catch { /* no speech available */ }
+  };
+  useEffect(() => {
+    if (data.settings.speech && msg.text && ['game', 'carve', 'fix', 'finish'].includes(view)) speak(msg.text);
   }, [msg, view, data.settings.speech]);
   // Only a tray that overflows lets a sideways swipe scroll it; when every piece fits, a piece can be dragged any way.
   useLayoutEffect(() => {
@@ -173,6 +176,7 @@ export default function App() {
   });
   useEffect(() => {
     document.documentElement.classList.toggle('big', data.settings.big);
+    document.documentElement.classList.toggle('still', data.settings.still);
   }, [data.settings]);
 
   const project = data.projects.find((p) => p.id === openId);
@@ -183,12 +187,29 @@ export default function App() {
   const sel = pickKind(kinds, selKind);
 
   const go = (v: View) => { setView(v); setArmed(null); };
+  // Play screens: reads the hint once, even with Puhe off (a player who does not read well may never find the setting).
+  const speaker = 'speechSynthesis' in window && <button aria-label="Lue ohje ääneen" onClick={() => speak(msg.text)}><span aria-hidden="true">🔊</span></button>;
   const help = <button aria-label="Ohje" onClick={() => { setHelpBack(view); go('help'); }}>?</button>;
   const update = (p: Project) => setData((d) => ({ ...d, projects: d.projects.map((x) => (x.id === p.id ? p : x)) }));
   const setSetting = (k: keyof Settings) => {
     if (k === 'sound' && !sound) beep(true);
     setData((d) => ({ ...d, settings: { ...d.settings, [k]: !d.settings[k] } }));
   };
+
+  function finish() {
+    if (!project || !building) return;
+    update({ ...project, phase: 'done' });
+    say(`Hienoa! ${building.name} on valmis.`);
+    fanfare(sound);
+    go('finish');
+  }
+  // Wide screens: big ‹ › buttons scroll an overflowing tray, so nobody has to swipe precisely (phones swipe; CSS hides them).
+  const arrow = (dir: 1 | -1) => trayScrolls && (
+    <button className="arrow" aria-label={dir < 0 ? 'Näytä edelliset' : 'Näytä lisää'}
+      onClick={() => trayRef.current?.scrollBy({ left: dir * trayRef.current.clientWidth * 0.8, behavior: still ? 'auto' : 'smooth' })}>
+      <span aria-hidden="true">{dir < 0 ? '‹' : '›'}</span>
+    </button>
+  );
 
   function open(id: string, fresh?: Project) {
     const p = fresh ?? data.projects.find((x) => x.id === id);
@@ -415,7 +436,7 @@ export default function App() {
     <div className="side">
       <p className="count">{count}</p>
       <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
-      {trayScrolls && <p className="more">↔ Pyyhkäise riviä sivulle, niin näet lisää.</p>}
+      {trayScrolls && <p className="more">↔ Paina nuolta tai pyyhkäise riviä, niin näet lisää.</p>}
     </div>
   );
   let body: JSX.Element;
@@ -512,7 +533,7 @@ export default function App() {
       <>
         <div className="bar"><button onClick={() => go('home')}>← Takaisin</button><h1>Asetukset</h1>{help}</div>
         <div className="col">
-          {tog('sound', '🔊 Äänet')}{tog('speech', '🗣 Puhe')}{tog('big', '🔠 Suuri teksti')}
+          {tog('sound', '🔊 Äänet')}{tog('speech', '🗣 Puhe')}{tog('big', '🔠 Suuri teksti')}{tog('still', '🐢 Vähemmän liikettä')}
           <button className="tog" onClick={() => {
             if (armed === 'all') { setData((d) => ({ ...d, projects: [], keep: [] })); setArmed(null); } else setArmed('all');
           }}><span>🗑 Poista kaikki rakennukset</span><b>{armed === 'all' ? 'Varmista' : 'Poista'}</b></button>
@@ -559,7 +580,7 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => { setCarving(null); go('game'); say('Veisto keskeytyi. Voit aloittaa uudelleen.'); }}>← Takaisin</button>
-          <h1>Veistä: {name}</h1>{help}<span className="cnt">{count}</span>
+          <h1>Veistä: {name}</h1>{speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
         <div className="stage">
@@ -582,7 +603,7 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => { setFixing(null); go('game'); say('Kiinnitys keskeytyi. Voit aloittaa uudelleen.'); }}>← Takaisin</button>
-          <h1>Kiinnitä: {name}</h1>{help}<span className="cnt">{count}</span>
+          <h1>Kiinnitä: {name}</h1>{speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
         <div className="stage">
@@ -597,6 +618,14 @@ export default function App() {
         )}
       </>
     );
+  } else if (view === 'finish' && building && project) {
+    body = (
+      <div className="col finish">
+        <h1>✓ {building.name} on valmis!</h1>
+        <div className="stage">{building.plan ? <Outside building={building} project={project} still={still} /> : <Scene building={building} project={project} thumb />}</div>
+        <button className="main big1" onClick={() => go('pick')}>Takaisin</button>
+      </div>
+    );
   } else if (building?.plan && project) {
     const plan = building.plan;
     const count = `Huoneet ${plan.goal.length - missing(plan, furn).length} / ${plan.goal.length}`;
@@ -605,7 +634,10 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
-          {help}<span className="cnt">{count}</span>
+          {/* In the bar so the tray keeps room for furniture on narrow screens; only once every room is done,
+              and hidden while a piece is chosen (its own ✓ Valmis ends the edit) so the two never mix. */}
+          {!selPiece && !missing(plan, furn).length && <button className="main" onClick={finish}>✓ Valmis</button>}
+          {speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
         <div className="stage">
@@ -613,6 +645,7 @@ export default function App() {
             grab={(id) => dragPlan(furn.find((f) => f.id === id)!.item, id)} preview={preview} />
         </div>
         <div className="tray" role="group" aria-label={selPiece ? 'Valittu huonekalu' : 'Huonekalut'}>
+          {arrow(-1)}
           <div ref={trayRef} className={trayScrolls ? 'strip scrolls' : 'strip'}>
             {selPiece ? (
               <>
@@ -627,12 +660,11 @@ export default function App() {
               </button>
             )) : <p>Kaikki huonekalut ovat paikallaan.</p>}
           </div>
+          {arrow(1)}
           <button disabled={!history.length} onClick={() => {
             update({ ...project, furniture: history[history.length - 1] });
             setHistory((h) => h.slice(0, -1)); setSelPiece(null); say('Peruttu.');
           }}>↶ Peru</button>
-          {/* While a piece is chosen its own ✓ Valmis ends the edit; the building's one is hidden so the two never mix. */}
-          {!selPiece && <button onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ Valmis</button>}
         </div>
       </>
     );
@@ -642,7 +674,9 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
-          {help}<span className="cnt">{count}</span>
+          {/* Every mode's ✓ Valmis sits in the bar, once the building is finished. */}
+          {shown.phase !== 'build' && <button className="main" onClick={finish}>✓ Valmis</button>}
+          {speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
         <div className="stage">
@@ -658,6 +692,7 @@ export default function App() {
         </div>
         {shown.phase === 'build' ? (
           <div className="tray" role="group" aria-label="Palat">
+            {arrow(-1)}
             <div ref={trayRef} className={trayScrolls ? 'strip scrolls' : 'strip'}>
               {kinds.map((k) => (
                 <button
@@ -689,12 +724,12 @@ export default function App() {
                 </button>
               ))}
             </div>
+            {arrow(1)}
             <button disabled={shown.placed.length === 0} onClick={() => { update(undo(project)); say('Peruttu.'); }}>↶ Peru</button>
           </div>
-        ) : building.mode ? (
-          <div className="col"><button className="main big1" onClick={() => go('pick')}>✓ Valmis</button></div>
-        ) : (
+        ) : building.mode ? null : (
           <div className="palette" role="group" aria-label="Värit">
+            {arrow(-1)}
             <div ref={trayRef} className="strip">
               {PALETTE.map((c, i) => (
                 <button key={c.name} className="sw" aria-pressed={selColor === i} onClick={() => { setSelColor(i); say('Napauta osaa kuvassa.'); }}>
@@ -702,7 +737,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <button className="main" onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ Valmis</button>
+            {arrow(1)}
           </div>
         )}
       </>

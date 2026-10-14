@@ -29,12 +29,21 @@ button.main{background:var(--accent);color:var(--onacc);border-color:var(--accen
 .count{font-weight:700;display:none}
 /* The scroll hint sits under the hint, right above the end of the tray; in portrait it would move the picture. */
 .more{display:none}
+/* The ‹ › tray arrows only on wide screens (phones swipe). */
+.arrow{display:none}
+/* Phones in portrait: the tray stays at the bottom of the screen, so the pieces never need scrolling to. */
+main.play :is(.tray,.palette){position:sticky;bottom:0;z-index:1;background:var(--bg);padding:8px 0}
+/* Finish screen: the finished building, as big as fits. */
+.finish .stage{width:100%}.finish .stage svg{max-height:60vh}
 .stage svg{display:block;width:100%;height:auto;max-height:56vh}
+/* Narrow play screens: Takaisin, Valmis and ? share the first row, the title and count go below it. */
+main.play .bar{gap:8px}main.play .bar>button{padding:10px 12px}main.play .bar>h1{order:1;flex-basis:100%}main.play .cnt{order:2}main.play .bar>.main{margin-left:auto}
 /* Landscape (e.g. a wall-mounted touch screen): the play screen fills the viewport, the picture shrinks to fit
    and the tray stays at the bottom, within reach from a wheelchair, so nothing needs scrolling. */
 /* Below 900 px wide (phones, small windows) the hint column would squeeze the picture; every tablet is 1024+ in landscape.
    4/5 rather than landscape: a desktop window a little taller than wide still fits; portrait tablets (~3/4) do not. */
-@media (min-width:900px) and (min-aspect-ratio:4/5){
+/* Phones held sideways (wide and low) get it too, so the tray is never below the fold. */
+@media (min-width:900px) and (min-aspect-ratio:4/5), (min-aspect-ratio:3/2) and (max-height:500px){
 main.play{max-width:1600px;height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
 /* Every box has a fixed size so a new hint, step name or tray never resizes the picture: the hint sits beside
    the picture (a 4:3 picture leaves spare width anyway), the bar never wraps and the tray row keeps its height
@@ -42,9 +51,10 @@ main.play{max-width:1600px;height:calc(100vh - env(safe-area-inset-top,0px) - en
 main.play #app{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(13rem,30%,21rem);grid-template-rows:auto minmax(0,1fr) minmax(calc(60px + 1.8rem),auto)}
 main.play #app>*{grid-column:1/-1;grid-row:3}
 main.play #app>.bar{grid-row:1;flex-wrap:nowrap}
-main.play .bar h1{flex:1;min-width:0;font-size:1.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main.play .bar h1{order:0;flex:1;min-width:0;font-size:1.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 main.play #app>.side{grid-column:2;grid-row:2;min-height:0}
 main.play .side>.msg{flex:1;min-height:0;overflow-y:auto}
+main.play :is(.tray,.palette)>.arrow{display:block;flex:0 0 auto;min-width:64px;padding:0 8px;font-size:2rem;line-height:1}
 main.play .more,main.play .count{display:block}main.play .more{font-size:.9rem}
 /* Sisusta: a room's "✓ name" tag shows when it is furnished and fades away so it never hides furniture for long. */
 .roomtag{animation:roomtag 4s forwards}@keyframes roomtag{75%{opacity:1}to{opacity:0}}
@@ -56,8 +66,10 @@ main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
 main.play .tray button{flex:1 0 auto;min-width:100px;padding:8px 10px}
 main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
+/* Phones held sideways: a smaller hint, so more of it fits beside the picture. */
+@media (min-aspect-ratio:3/2) and (max-height:500px){main.play .msg{font-size:1rem;padding:8px 10px}}
 /* Short landscape (e.g. an 8.7" tablet, ~700 px tall): every pixel goes to the picture. */
-@media (min-width:900px) and (min-aspect-ratio:4/5) and (max-height:820px){
+@media (min-width:900px) and (min-aspect-ratio:4/5) and (max-height:820px), (min-aspect-ratio:3/2) and (max-height:500px){
 main.play{padding:12px 16px}
 main.play #app{gap:12px}
 }
@@ -92,5 +104,7 @@ main.play .tray>button:not(.piece){background:color-mix(in srgb,var(--line) 14%,
 .slot{cursor:pointer}
 .ghost{position:fixed;pointer-events:none;z-index:9;padding:10px 18px;background:#c98a4b;border:3px solid #5a3a1c;border-radius:14px;color:#2b2118;font-weight:700;transform:translate(-50%,-50%)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* The "Vähemmän liikettä" setting does the same. */
+html.still *{animation:none!important;transition:none!important}
 .help{margin:0;padding-left:1.6em;display:flex;flex-direction:column;gap:10px;font-size:1.1rem;line-height:1.4}
 h2{font-size:1.4rem;margin:0}

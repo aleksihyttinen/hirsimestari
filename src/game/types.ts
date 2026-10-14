@@ -113,6 +113,8 @@ export interface Project {
 export interface Settings {
   sound: boolean;
   big: boolean;
+  /** Less motion: no animations, on top of the system's prefers-reduced-motion. */
+  still: boolean;
   /** Read instructions aloud (Papunet-style äänituki). */
   speech: boolean;
 }

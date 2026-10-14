@@ -108,7 +108,7 @@ describe('painting', () => {
 describe('saving', () => {
   it('restores what was saved', () => {
     const store = fakeStore();
-    const data = { projects: [paint(build(fresh(), 10), 'door', '#2f6db5')], settings: { sound: true, big: false, speech: true }, keep: [] };
+    const data = { projects: [paint(build(fresh(), 10), 'door', '#2f6db5')], settings: { sound: true, big: false, speech: true, still: true }, keep: [] };
     saveData(store, data);
     expect(loadData(store)).toEqual(data);
   });
@@ -222,7 +222,7 @@ describe('hirsityöt: the large frame and hewing', () => {
   it('saves the hewing choice and drops unknown hewn ids', () => {
     const store = fakeStore();
     const p = { ...newProject('aitta', 'a1'), carve: true, carved: ['k1', 'zz', 5] } as unknown as Project;
-    saveData(store, { projects: [p], keep: [], settings: { sound: false, big: false, speech: false } });
+    saveData(store, { projects: [p], keep: [], settings: { sound: false, big: false, speech: false, still: false } });
     const q = loadData(store).projects[0]!;
     expect(q.carve).toBe(true);
     expect(q.carved).toEqual(['k1']);
@@ -334,7 +334,7 @@ describe('huoneet: omakotitalo', () => {
   it('saves furniture, drops what does not fit, and keeps the plan in build', () => {
     const s = fakeStore();
     const p = { ...newProject('omakotitalo', 'h'), furniture: [...home, f('18', 'chair', 8, 0), f('x', 'bed', 2, 0, 1)] };
-    saveData(s, { projects: [p], settings: { sound: false, big: false, speech: false }, keep: [] });
+    saveData(s, { projects: [p], settings: { sound: false, big: false, speech: false, still: false }, keep: [] });
     const back = loadData(s).projects[0]!;
     expect(back.furniture).toEqual(home); // a third chair and a bed through the wall are dropped
     expect(back.phase).toBe('build');

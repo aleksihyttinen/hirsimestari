@@ -6,7 +6,7 @@ import type { Project, SaveData } from './types';
 export type Store = Pick<Storage, 'getItem' | 'setItem'>;
 const KEY = 'hirsimestari-v1';
 
-const blank = (): SaveData => ({ projects: [], keep: [], settings: { sound: false, big: false, speech: false } });
+const blank = (): SaveData => ({ projects: [], keep: [], settings: { sound: false, big: false, speech: false, still: false } });
 
 export const newProject = (buildingId: string, id = `p${Date.now()}`): Project =>
   ({ id, buildingId, placed: [], colors: {}, phase: 'build' });
@@ -46,7 +46,7 @@ export function loadData(store: Store | null): SaveData {
         // Unknown building or a field this version cannot read (e.g. after a rollback): keep it, never erase it.
         else if (isRecord(v)) d.keep.push(v);
       }
-    if (isRecord(raw.settings)) for (const k of ['sound', 'big', 'speech'] as const) d.settings[k] = raw.settings[k] === true;
+    if (isRecord(raw.settings)) for (const k of ['sound', 'big', 'speech', 'still'] as const) d.settings[k] = raw.settings[k] === true;
   } catch { /* corrupt or blocked storage: start fresh */ }
   return d;
 }

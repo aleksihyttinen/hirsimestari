@@ -327,6 +327,8 @@ interface SceneProps {
   /** Sisusta: pointer handlers that let a placed piece be dragged, and where a dragged piece would land. */
   grab?: (id: string) => DOMAttributes<Element>;
   preview?: Furniture | null;
+  /** Drawn inside another SVG (the finish view), so it needs its own size there. */
+  nest?: boolean;
 }
 
 /** Hirren veisto, side view: the log as five tappable parts. A part's `level` = steps already done to it. */
@@ -495,7 +497,7 @@ export function planCell(svg: SVGSVGElement, cols: number, rows: number, x: numb
 const WALL = '#4a3b2c';
 const FLOOR = '#efe9dc';
 
-function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell, onPiece, grab, preview }: SceneProps) {
+function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell, onPiece, grab, preview, nest }: SceneProps) {
   const plan = building.plan!;
   const furn = project.furniture ?? [];
   const used = usedCells(plan, furn);
@@ -535,7 +537,7 @@ function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell
   return (
     // No browser panning on the plan: a finger on it drags furniture.
     <svg ref={svgRef} viewBox={`-8 -8 ${CELL * plan.cols + 16} ${CELL * plan.rows + 16}`} role={thumb ? 'img' : 'group'} aria-label={building.name} aria-hidden={thumb || undefined}
-      style={thumb ? undefined : { touchAction: 'none' }}>
+      style={thumb ? undefined : { touchAction: 'none' }} {...(nest && { x: -8, y: -8, width: CELL * plan.cols + 16, height: CELL * plan.rows + 16 })}>
       <rect x={-8} y={-8} width={CELL * plan.cols + 16} height={CELL * plan.rows + 16} fill="#7fae7a" />
       {plan.rooms.map((r) => <rect key={r.id} x={at(r.x, r.y).X} y={at(r.x, r.y).Y} width={CELL * r.w} height={CELL * r.h} fill={FLOOR} />)}
       {/* The grid: furniture snaps to these cells. */}
@@ -587,6 +589,90 @@ function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell
           </g>
         );
       })}
+    </svg>
+  );
+}
+
+const ease = (v: number) => { const c = Math.min(1, Math.max(0, v)); return c * c * (3 - 2 * c); };
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+const pts = (ps: [number, number][]) => ps.map((p) => p.join(',')).join(' ');
+/** Finish view of a furnished floor plan: the plan tilts into a 3D view as the camera pulls back, the outer walls rise
+ * with the plan's doors and windows on them, and the roof comes down over 4 s (at once when `still`). */
+export function Outside({ building, project, still }: { building: Building; project: Project; still: boolean }) {
+  const plan = building.plan!;
+  const [t, setT] = useState(() => (still ? 1 : 0));
+  useEffect(() => {
+    if (t >= 1) return;
+    const start = performance.now();
+    let id = requestAnimationFrame(function step(now) {
+      const v = Math.min(1, (now - start) / 4000);
+      setT(v);
+      if (v < 1) id = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  // The walls stand on the outer edge of the plan's thick outer wall (4 units out), so its marks stay inside.
+  const W = CELL * plan.cols + 4, D = CELL * plan.rows + 4, b0 = -4;
+  // shortcut: the ridge runs along the long x side, which every plan has; a plan deeper than wide needs the roof turned.
+  const H = 104, rise = D * 0.26, o = 14;
+  const a = ease(t / 0.35), h = H * ease((t - 0.35) / 0.3), r = ease((t - 0.65) / 0.3);
+  const c = 0.866, sn = 0.5;
+  // Top view at a = 0, isometric at a = 1; z lifts straight up on screen.
+  const P = (x: number, y: number, z = 0, lift = 0): [number, number] =>
+    [lerp(x, (x - y) * c, a), lerp(y, (x + y) * sn, a) - z - lift];
+  const drop = (1 - r) * 120;
+  const iso = (x: number, y: number, z: number): [number, number] => [(x - y) * c, (x + y) * sn - z];
+  const mid = (b0 + D) / 2;
+  const end = [iso(b0 - o, b0 - o, H), iso(W + o, b0 - o, H), iso(b0 - o, D + o, 0), iso(W + o, D + o, 0), iso(b0, mid, H + rise)];
+  const ex = end.map((p) => p[0]), ey = end.map((p) => p[1]);
+  const m = 60;
+  const box = [Math.min(...ex) - m, Math.min(...ey) - m, Math.max(...ex) - Math.min(...ex) + 2 * m, Math.max(...ey) - Math.min(...ey) + 2 * m];
+  const z = ease(t / 0.65);
+  const vb = [lerp(-8, box[0]!, z), lerp(-8, box[1]!, z), lerp(W + 12, box[2]!, z), lerp(D + 12, box[3]!, z)];
+  const log = DEFAULT_COLOR.log;
+  // A wall face from (x0,y0) to (x1,y1), with log seams every 13 units.
+  const wall = (k: string, x0: number, y0: number, x1: number, y1: number, fill: string) => h > 0 && (
+    <g key={k}>
+      <polygon points={pts([P(x0, y0), P(x1, y1), P(x1, y1, h), P(x0, y0, h)])} fill={fill} {...ST} />
+      {Array.from({ length: Math.floor(h / 13) }, (_, i) => <polyline key={i} points={pts([P(x0, y0, (i + 1) * 13), P(x1, y1, (i + 1) * 13)])} fill="none" stroke="#5a3a1c" strokeWidth={1.2} opacity={0.6} />)}
+    </g>
+  );
+  // A door or window on a front wall: `u0..u1` along the wall, `z0..z1` up it, cut at the wall's current height.
+  const hole = (k: string, front: 'south' | 'east', u0: number, u1: number, z0: number, z1: number, fill: string) => {
+    const top = Math.min(z1, h);
+    if (top <= z0) return null;
+    const q = (u: number, zz: number) => (front === 'south' ? P(u, D, zz) : P(W, u, zz));
+    return <polygon key={k} points={pts([q(u0, z0), q(u1, z0), q(u1, top), q(u0, top)])} fill={fill} stroke={fill === '#bfe3f5' ? '#fff' : '#3a2616'} strokeWidth={3} />;
+  };
+  const openings = [
+    ...plan.doors.filter((d) => d.side === 'top' && d.y === plan.rows).map((d) => hole(`d${d.x}`, 'south', CELL * d.x + 6, CELL * d.x + 34, 0, 84, DEFAULT_COLOR.door)),
+    ...plan.doors.filter((d) => d.side === 'left' && d.x === plan.cols).map((d) => hole(`e${d.y}`, 'east', CELL * d.y + 6, CELL * d.y + 34, 0, 84, DEFAULT_COLOR.door)),
+    ...plan.windows.filter((d) => d.side === 'top' && d.y === plan.rows).map((d) => hole(`w${d.x}`, 'south', CELL * d.x + 6, CELL * d.x + 34, 40, 80, '#bfe3f5')),
+    ...plan.windows.filter((d) => d.side === 'left' && d.x === plan.cols).map((d) => hole(`v${d.y}`, 'east', CELL * d.y + 6, CELL * d.y + 34, 40, 80, '#bfe3f5')),
+  ];
+  // The roof, dropped from above while it fades in; the eaves stick out by `o`, the gable ends are flush with the walls.
+  const R = (x: number, y: number, zz: number) => P(x, y, zz, drop);
+  const eave = H - o * (rise / (mid - b0));
+  return (
+    <svg viewBox={vb.join(' ')} role="img" aria-label={`${building.name} on valmis`}>
+      {/* Far wider than the view, so the grass fills a box of any shape. */}
+      <rect x={vb[0]! - 2000} y={vb[1]! - 2000} width={vb[2]! + 4000} height={vb[3]! + 4000} fill="#7fae7a" />
+      <g transform={`matrix(${1 - a + a * c} ${a * sn} ${-a * c} ${1 - a + a * sn} 0 0)`}>
+        <Scene building={building} project={project} thumb nest />
+      </g>
+      {/* Back walls first (seen from inside while they rise), then the front ones over the rooms. */}
+      {wall('n', b0, b0, W, b0, '#e2bd8c')}
+      {wall('w', b0, D, b0, b0, '#e2bd8c')}
+      {wall('s', b0, D, W, D, log)}
+      {wall('e', W, D, W, b0, '#a86f3a')}
+      {openings}
+      {r > 0 && (
+        <g opacity={r}>
+          <polygon points={pts([R(b0, mid, H + rise), R(W, mid, H + rise), R(W, b0 - o, eave), R(b0, b0 - o, eave)])} fill="#7a3826" {...ST} />
+          <polygon points={pts([R(W, b0, H), R(W, D, H), R(W, mid, H + rise)])} fill="#a86f3a" {...ST} />
+          <polygon points={pts([R(b0, mid, H + rise), R(W, mid, H + rise), R(W, D + o, eave), R(b0, D + o, eave)])} fill={DEFAULT_COLOR.roof} {...ST} />
+        </g>
+      )}
     </svg>
   );
 }
