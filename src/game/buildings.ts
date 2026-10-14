@@ -16,7 +16,7 @@ export const DEFAULT_COLOR: Record<PieceKind, string> = {
   wc: '#f4f0e8', shower: '#9aa3ab', basin: '#f4f0e8', vent: '#f4f0e8', control: '#3a3a38', lamp: '#d9a86a',
   kiuas: '#4a4a48', bench: '#e2c08a',
 };
-/** Hewing tools, shown above the log not in step order. A step's `wrong` completes "<tool> ei sovi …". */
+/** Hewing tools, shown below the log not in step order. A step's `wrong` completes "<tool> ei sovi …". */
 export type Tool = 'marauta' | 'piilukirves' | 'kourutaltta' | 'saha';
 export const TOOLS: { id: Tool; name: string }[] = [
   { id: 'piilukirves', name: 'Piilukirves' },
@@ -34,16 +34,17 @@ export const CARVE_STEPS: { name: string; tool: Tool; hint: string; wrong: strin
 
 /** Sisätyöt fastening. Each step offers the right item and one or two others (`choices` in rules.ts). */
 export type Material = 'naula' | 'puuruuvi' | 'pitkaruuvi' | 'pultti' | 'kiinnike' | 'kannake' | 'liitin' | 'teippi' | 'liima';
-export const MATERIALS: { id: Material; name: string }[] = [
-  { id: 'teippi', name: 'Teippi' },
-  { id: 'puuruuvi', name: 'Puuruuvi' },
-  { id: 'kannake', name: 'Putkenkannake' },
-  { id: 'naula', name: 'Naula' },
-  { id: 'pultti', name: 'Pultti ja mutteri' },
-  { id: 'kiinnike', name: 'Kaapelikiinnike' },
-  { id: 'liima', name: 'Liima' },
-  { id: 'pitkaruuvi', name: 'Pitkä ruuvi' },
-  { id: 'liitin', name: 'Puristusliitin' },
+/** `to` is the name in allative: completes "Valitse sopiva työkalu …". */
+export const MATERIALS: { id: Material; name: string; to: string }[] = [
+  { id: 'teippi', name: 'Teippi', to: 'teipille' },
+  { id: 'puuruuvi', name: 'Puuruuvi', to: 'puuruuville' },
+  { id: 'kannake', name: 'Putkenkannake', to: 'putkenkannakkeelle' },
+  { id: 'naula', name: 'Naula', to: 'naulalle' },
+  { id: 'pultti', name: 'Pultti ja mutteri', to: 'pultille ja mutterille' },
+  { id: 'kiinnike', name: 'Kaapelikiinnike', to: 'kaapelikiinnikkeelle' },
+  { id: 'liima', name: 'Liima', to: 'liimalle' },
+  { id: 'pitkaruuvi', name: 'Pitkä ruuvi', to: 'pitkälle ruuville' },
+  { id: 'liitin', name: 'Puristusliitin', to: 'puristusliittimelle' },
 ];
 export type FixTool = 'vasara' | 'ruuvain' | 'jakoavain' | 'saha' | 'leikkuri';
 export const FIX_TOOLS: { id: FixTool; name: string }[] = [

@@ -78,6 +78,7 @@ const SISA: [string, ReactNode][] = [
   ['Oikeassa talossa', 'Sähkötyöt ja kiukaan kytkennän tekee aina sähköasentaja.'],
 ];
 const FIX_STEPS = ['Kiinnike', 'Työkalu', 'Kiinnitys'];
+const toolHint = (m: Material) => `Valitse sopiva työkalu ${MATERIALS.find((x) => x.id === m)!.to}.`;
 const FIX_NAME = Object.fromEntries([...MATERIALS, ...FIX_TOOLS].map((x) => [x.id, x.name])) as Record<Material | FixTool, string>;
 // A finished room: what to tap (partitive), and what it says when turned on and off.
 const TRY: Partial<Record<PieceKind, [string, string, string]>> = {
@@ -241,12 +242,13 @@ export default function App() {
     const f = fixing && FIX[fixing.kind];
     if (!fixing || !f) return;
     if (id !== (fixing.step ? f.tool : f.material)) {
-      say(`${FIX_NAME[id]} ei sovi ${f.wrong}. Valitse toinen.`);
+      // On the tool step, name the chosen fastener again: some players forget it.
+      say(`${FIX_NAME[id]} ei sovi ${f.wrong}. ${fixing.step ? toolHint(f.material) : 'Valitse toinen.'}`);
       return;
     }
     beep(sound, 440, 0.08);
     setFixing({ ...fixing, step: fixing.step + 1 });
-    say(fixing.step ? 'Napauta kiinnityskohtia.' : 'Hyvä! Valitse työkalu.');
+    say(fixing.step ? 'Napauta kiinnityskohtia.' : `Hyvä! ${toolHint(f.material)}`);
   }
   function fixSpot(i: number) {
     const f = fixing && FIX[fixing.kind];
@@ -429,6 +431,9 @@ export default function App() {
           <h1>Veistä: {name}</h1>{help}<span>Vaihe {carving.step + 1} / {CARVE_STEPS.length}: {s.name}</span>
         </div>
         <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+        <div className="stage">
+          <CarveLog step={carving.step} done={carving.done} parts={s.parts} label={`${s.name}: ${name}`} onPart={carvePart} />
+        </div>
         <div className="tray" role="group" aria-label="Työkalut">
           {TOOLS.map((t) => (
             <button key={t.id} className="piece" aria-pressed={carving.tool === t.id}
@@ -436,9 +441,6 @@ export default function App() {
               <ToolIcon tool={t.id} /><span>{carving.tool === t.id ? '✓ ' : ''}{t.name}</span>
             </button>
           ))}
-        </div>
-        <div className="stage">
-          <CarveLog step={carving.step} done={carving.done} parts={s.parts} label={`${s.name}: ${name}`} onPart={carvePart} />
         </div>
       </>
     );
@@ -451,6 +453,9 @@ export default function App() {
           <h1>Kiinnitä: {name}</h1>{help}<span>Vaihe {fixing.step + 1} / {FIX_STEPS.length}: {FIX_STEPS[fixing.step]}</span>
         </div>
         <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+        <div className="stage">
+          <FixPiece kind={fixing.kind} done={fixing.done} active={fixing.step === 2} label={`Kiinnitä: ${name}`} onSpot={fixSpot} />
+        </div>
         {fixing.step < 2 && (
           <div className="tray" role="group" aria-label={fixing.step ? 'Työkalut' : 'Kiinnikkeet'}>
             {(fixing.step ? fixing.tools : fixing.materials).map((id) => (
@@ -458,9 +463,6 @@ export default function App() {
             ))}
           </div>
         )}
-        <div className="stage">
-          <FixPiece kind={fixing.kind} done={fixing.done} active={fixing.step === 2} label={`Kiinnitä: ${name}`} onSpot={fixSpot} />
-        </div>
       </>
     );
   } else if (building && shown && project) {
