@@ -50,7 +50,7 @@ main.play .cnt{display:none}
 main.play #app>.stage{grid-column:1;grid-row:2;position:relative}
 main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
 /* Each button is as wide as its label (at least 100 px) and never shrinks, so labels never spill. */
-main.play .tray>button{flex:1 0 auto;min-width:100px;padding:8px 10px}
+main.play .tray button{flex:1 0 auto;min-width:100px;padding:8px 10px}
 main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
 /* Short landscape (e.g. an 8.7" tablet, ~700 px tall): every pixel goes to the picture. */
@@ -60,12 +60,12 @@ main.play #app{gap:12px}
 }
 .tray,.palette,.menu{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}
 /* Trays while playing are always one row so the picture keeps its size: a long tray scrolls sideways
-   and Peru stays pinned at the end, always visible. */
+   inside its .strip, and Peru (or Valmis) sits beside the strip, always visible and never over a piece. */
 main.play :is(.tray,.palette){flex-wrap:nowrap;overflow-x:auto}
-main.play :is(.tray,.palette)>button{flex-shrink:0}
-main.play :is(.tray>button:not(.piece),.palette>.main){position:sticky;right:0}
-/* Pieces scroll under it, so a disabled Peru is faded with colours, not see-through opacity. */
-main.play .tray>button:not(.piece):disabled{opacity:1;color:color-mix(in srgb,var(--fg) 45%,var(--card));border-color:color-mix(in srgb,var(--line) 45%,var(--card))}
+main.play :is(.tray,.palette,.strip)>*{flex-shrink:0}
+main.play .strip{display:flex;gap:14px;flex:1 1 auto;min-width:0;overflow-x:auto}
+/* Peru is tinted so it reads as an action, not one more piece. */
+main.play .tray>button:not(.piece){background:color-mix(in srgb,var(--line) 14%,var(--card))}
 /* A sideways swipe on a piece scrolls an overflowing tray (.scrolls); dragging a piece up to the picture still works. */
 .drag{touch-action:none}
 .scrolls>.drag{touch-action:pan-x}

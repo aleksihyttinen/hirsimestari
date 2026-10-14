@@ -494,47 +494,51 @@ export default function App() {
           />
         </div>
         {shown.phase === 'build' ? (
-          <div ref={trayRef} className={trayScrolls ? 'tray scrolls' : 'tray'} role="group" aria-label="Palat">
-            {kinds.map((k) => (
-              <button
-                key={k} className="piece drag" aria-pressed={sel === k}
-                aria-label={`${KIND_LABEL[k]}, ${unplaced(building, shown, k)} jäljellä`}
-                onPointerDown={(e) => {
-                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }
-                  drag.current = { kind: k, x: e.clientX, y: e.clientY, active: false };
-                }}
-                onPointerMove={(e) => {
-                  const d = drag.current;
-                  if (!d) return;
-                  if (d.active || isDrag(e.clientX - d.x, e.clientY - d.y)) { d.active = true; setSelKind(k); setGhost({ x: e.clientX, y: e.clientY, kind: k }); }
-                }}
-                onPointerUp={(e) => {
-                  const d = drag.current;
-                  drag.current = null; setGhost(null);
-                  if (d?.active) { wasDrag.current = true; setTimeout(() => { wasDrag.current = false; }, 50); drop(k, e.clientX, e.clientY); }
-                }}
-                onPointerCancel={() => { drag.current = null; setGhost(null); }}
-                // Browser can drop capture without pointerup/cancel (gesture takeover); never leave the ghost hanging.
-                onLostPointerCapture={() => { drag.current = null; setGhost(null); }}
-                onClick={() => {
-                  if (wasDrag.current) return; // the click that follows a drag is not a tap
-                  setSelKind(k); say(placeHint(k));
-                }}
-              >
-                <Icon kind={k} lean={building.targets.some((t) => t.kind === k && t.lean)} /><span>{KIND_LABEL[k]} × {unplaced(building, shown, k)}</span>
-              </button>
-            ))}
+          <div className="tray" role="group" aria-label="Palat">
+            <div ref={trayRef} className={trayScrolls ? 'strip scrolls' : 'strip'}>
+              {kinds.map((k) => (
+                <button
+                  key={k} className="piece drag" aria-pressed={sel === k}
+                  aria-label={`${KIND_LABEL[k]}, ${unplaced(building, shown, k)} jäljellä`}
+                  onPointerDown={(e) => {
+                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }
+                    drag.current = { kind: k, x: e.clientX, y: e.clientY, active: false };
+                  }}
+                  onPointerMove={(e) => {
+                    const d = drag.current;
+                    if (!d) return;
+                    if (d.active || isDrag(e.clientX - d.x, e.clientY - d.y)) { d.active = true; setSelKind(k); setGhost({ x: e.clientX, y: e.clientY, kind: k }); }
+                  }}
+                  onPointerUp={(e) => {
+                    const d = drag.current;
+                    drag.current = null; setGhost(null);
+                    if (d?.active) { wasDrag.current = true; setTimeout(() => { wasDrag.current = false; }, 50); drop(k, e.clientX, e.clientY); }
+                  }}
+                  onPointerCancel={() => { drag.current = null; setGhost(null); }}
+                  // Browser can drop capture without pointerup/cancel (gesture takeover); never leave the ghost hanging.
+                  onLostPointerCapture={() => { drag.current = null; setGhost(null); }}
+                  onClick={() => {
+                    if (wasDrag.current) return; // the click that follows a drag is not a tap
+                    setSelKind(k); say(placeHint(k));
+                  }}
+                >
+                  <Icon kind={k} lean={building.targets.some((t) => t.kind === k && t.lean)} /><span>{KIND_LABEL[k]} × {unplaced(building, shown, k)}</span>
+                </button>
+              ))}
+            </div>
             <button disabled={shown.placed.length === 0} onClick={() => { update(undo(project)); say('Peruttu.'); }}>↶ Peru</button>
           </div>
         ) : building.mode ? (
           <div className="col"><button className="main big1" onClick={() => go('pick')}>✓ Valmis</button></div>
         ) : (
-          <div ref={trayRef} className="palette" role="group" aria-label="Värit">
-            {PALETTE.map((c, i) => (
-              <button key={c.name} className="sw" aria-pressed={selColor === i} onClick={() => { setSelColor(i); say('Napauta osaa kuvassa.'); }}>
-                <i style={{ background: c.value ?? 'linear-gradient(135deg, #c98a4b 50%, #bfe3f5 50%)' }} />{c.name}
-              </button>
-            ))}
+          <div className="palette" role="group" aria-label="Värit">
+            <div ref={trayRef} className="strip">
+              {PALETTE.map((c, i) => (
+                <button key={c.name} className="sw" aria-pressed={selColor === i} onClick={() => { setSelColor(i); say('Napauta osaa kuvassa.'); }}>
+                  <i style={{ background: c.value ?? 'linear-gradient(135deg, #c98a4b 50%, #bfe3f5 50%)' }} />{c.name}
+                </button>
+              ))}
+            </div>
             <button className="main" onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ Valmis</button>
           </div>
         )}
