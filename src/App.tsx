@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
 import { canPlace, choices, hintFor, isPlaced, nearestTarget, needsCarve, openTargets, paint, pickKind, place, placeHint, trayKinds, undo, unplaced, whyNot } from './game/rules';
@@ -121,6 +121,8 @@ export default function App() {
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ kind: PieceKind; x: number; y: number; active: boolean } | null>(null);
   const wasDrag = useRef(false);
+  const trayRef = useRef<HTMLDivElement>(null);
+  const [trayScrolls, setTrayScrolls] = useState(false);
 
   const { sound } = data.settings;
   useEffect(() => saveData(store(), data), [data]);
@@ -137,6 +139,13 @@ export default function App() {
       speechSynthesis.speak(Object.assign(new SpeechSynthesisUtterance(msg.text.replace('＋', 'plus')), { lang: 'fi-FI' }));
     } catch { /* no speech available */ }
   }, [msg, view, data.settings.speech]);
+  // Only a tray that overflows lets a sideways swipe scroll it; when every piece fits, a piece can be dragged any way.
+  useLayoutEffect(() => {
+    const check = () => setTrayScrolls(!!trayRef.current && trayRef.current.scrollWidth > trayRef.current.clientWidth);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  });
   useEffect(() => {
     document.documentElement.classList.toggle('big', data.settings.big);
   }, [data.settings]);
@@ -475,10 +484,10 @@ export default function App() {
           />
         </div>
         {shown.phase === 'build' ? (
-          <div className="tray" role="group" aria-label="Palat">
+          <div ref={trayRef} className={trayScrolls ? 'tray scrolls' : 'tray'} role="group" aria-label="Palat">
             {kinds.map((k) => (
               <button
-                key={k} className="piece" aria-pressed={sel === k} style={{ touchAction: 'none' }}
+                key={k} className="piece drag" aria-pressed={sel === k}
                 aria-label={`${KIND_LABEL[k]}, ${unplaced(building, shown, k)} jäljellä`}
                 onPointerDown={(e) => {
                   try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not supported */ }

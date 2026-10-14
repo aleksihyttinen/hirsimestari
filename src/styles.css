@@ -34,11 +34,26 @@ main.play #app{flex:1;min-height:0}
 main.play .msg{min-height:calc(1.4em + 30px)}
 main.play .stage{flex:1;min-height:160px;position:relative}
 main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
-/* Each button is as wide as its label (at least 100 px), so labels never spill; a long tray wraps to a second row. */
-main.play .tray>button{flex:1 1 auto;min-width:100px;padding:8px 10px}
+/* Each button is as wide as its label (at least 100 px) and never shrinks, so labels never spill. */
+main.play .tray>button{flex:1 0 auto;min-width:100px;padding:8px 10px}
 main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
+/* Short landscape (e.g. an 8.7" tablet, ~700 px tall): every pixel goes to the picture. */
+@media (orientation:landscape) and (max-height:820px){
+main.play{padding:12px 16px}
+main.play #app{gap:12px}
+}
 .tray,.palette,.menu{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}
+/* Trays while playing are always one row so the picture keeps its size: a long tray scrolls sideways
+   and Peru stays pinned at the end, always visible. */
+main.play :is(.tray,.palette){flex-wrap:nowrap;overflow-x:auto}
+main.play :is(.tray,.palette)>button{flex-shrink:0}
+main.play :is(.tray>button:not(.piece),.palette>.main){position:sticky;right:0}
+/* Pieces scroll under it, so a disabled Peru is faded with colours, not see-through opacity. */
+main.play .tray>button:not(.piece):disabled{opacity:1;color:color-mix(in srgb,var(--fg) 45%,var(--card));border-color:color-mix(in srgb,var(--line) 45%,var(--card))}
+/* A sideways swipe on a piece scrolls an overflowing tray (.scrolls); dragging a piece up to the picture still works. */
+.drag{touch-action:none}
+.scrolls>.drag{touch-action:pan-x}
 .piece{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:130px;user-select:none}
 .piece[aria-pressed="true"]{background:#ffe9a8;color:#2b2118;border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--accent)}
 /* Selection must not change a button's size, or the tray reflows and the picture shrinks: thicker border is a shadow, ✓ is an overlay. */
