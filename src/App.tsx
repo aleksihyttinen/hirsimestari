@@ -208,14 +208,14 @@ export default function App() {
     }
     const next = place(building, project, id);
     update(next);
-    setSelKind(null);
+    // The chosen piece stays chosen (pickKind drops it once none is left), so repeats like wall logs need no re-tap.
     if (next.phase !== 'build') {
       setSelColor(1);
       say(building.mode === 'runko' ? 'Runko on valmis! Hienoa!' : building.mode === 'sisa' ? `${building.name} on valmis! Hienoa! ${tryHint(building, [])}` : 'Rakennus on valmis! Hienoa! Maalaa halutessasi.');
       beep(sound, 523, 0.15, 0); beep(sound, 659, 0.15, 0.15); beep(sound, 784, 0.3, 0.3);
     } else {
       beep(sound);
-      say('Hyvä! ' + (building.mode === 'runko' ? `${KIND_INFO[kind] ?? ''} Valitse seuraava pala.` : hintFor(building, next, null)));
+      say('Hyvä! ' + (building.mode === 'runko' ? `${KIND_INFO[kind] ?? ''} ` : '') + hintFor(building, next, kind));
     }
   }
   // A swipe hews several parts between renders, so parts are added with an updater and steps advance in an effect.
@@ -514,7 +514,7 @@ export default function App() {
                 <Icon kind={k} lean={building.targets.some((t) => t.kind === k && t.lean)} /><span>{KIND_LABEL[k]} × {unplaced(building, shown, k)}</span>
               </button>
             ))}
-            <button disabled={shown.placed.length === 0} onClick={() => { update(undo(project)); setSelKind(null); say('Peruttu.'); }}>↶ Peru</button>
+            <button disabled={shown.placed.length === 0} onClick={() => { update(undo(project)); say('Peruttu.'); }}>↶ Peru</button>
           </div>
         ) : building.mode ? (
           <div className="col"><button className="main big1" onClick={() => go('pick')}>✓ Valmis</button></div>
@@ -535,7 +535,7 @@ export default function App() {
   }
 
   return (
-    <main>
+    <main className={view === 'game' || view === 'carve' || view === 'fix' ? 'play' : undefined}>
       <div id="app">{body}</div>
       {ghost && <div className="ghost" style={{ left: ghost.x, top: ghost.y }}>{KIND_LABEL[ghost.kind]}</div>}
     </main>

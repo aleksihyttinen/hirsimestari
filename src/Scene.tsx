@@ -287,8 +287,6 @@ function Slot({ t, hot }: { t: Target; hot: boolean }) {
       ) : (
         <rect x={t.x} y={t.y + 1} width={t.w} height={t.h - 2} rx={ROUND.has(t.kind) ? t.w / 2 : BAR.has(t.kind) ? t.h / 2 - 1 : 4} {...common} />
       )}
-      {/* Round ends and wall fittings are small: a wider invisible area keeps them easy to tap. */}
-      {(ROUND.has(t.kind) || Math.min(t.w, t.h) < 44) && <rect x={t.x - 12} y={t.y - 12} width={t.w + 24} height={t.h + 24} fill="transparent" />}
       {hot && (
         <>
           <circle cx={cx} cy={cy} r={14} fill="#0b5cad" />
@@ -412,6 +410,11 @@ export function Scene({ building, project, selKind = null, thumb = false, svgRef
       {/* Kivijalka under the two kengityshirret, which frames list first; or a corner stone under each. */}
       {building.mode === 'runko' && building.stones && building.targets.slice(0, 2).map((t) => <rect key={t.id} x={t.x - 4} y={t.y + t.h} width={t.w + 8} height={270 - t.y - t.h} rx={4} fill="#9a9a92" {...ST} />)}
       {building.mode === 'runko' && !building.stones && <rect x={building.targets[0]!.x - 4} y={252} width={building.targets[1]!.x + building.targets[1]!.w - building.targets[0]!.x + 8} height={18} rx={3} fill="#9a9a92" {...ST} />}
+      {/* Round ends and wall fittings are small: a wider invisible area keeps them easy to tap. Drawn under every
+          slot so a margin never steals a tap from a neighbouring piece (Pirtti's roof pieces sit close together). */}
+      {onSlot && building.targets.filter((t) => open.includes(t.id) && !isPlaced(project, t.id) && !(t.kind in SHUTOFF) && (ROUND.has(t.kind) || Math.min(t.w, t.h) < 44)).map((t) => (
+        <rect key={t.id} className="slot" x={t.x - 12} y={t.y - 12} width={t.w + 24} height={t.h + 24} fill="transparent" aria-hidden="true" onClick={() => onSlot(t.id)} />
+      ))}
       {building.targets.map((t) => {
         if (isPlaced(project, t.id)) {
           const fill = project.colors[t.id] ?? DEFAULT_COLOR[t.kind];

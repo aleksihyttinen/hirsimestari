@@ -25,7 +25,7 @@ React 18, strict TypeScript, Vite, SVG, plain CSS, `vite-plugin-pwa`, localStora
 
 ## How the game works
 - A `Target` is a slot (`x,y,w,h` in SVG units) with `after: string[]` prerequisites. Only targets whose prerequisites are placed are available, so the build order is data: logs bottom-up, then door and windows, then pier or porch and roof, then chimney or fire.
-- Only available slots are drawn. The active one is yellow with a ＋ mark. With a single available piece kind it is auto-selected.
+- Only available slots are drawn. The active one is yellow with a ＋ mark. With a single available piece kind it is auto-selected. A chosen piece stays chosen after placing (and after Peru) until none of it is left.
 - Placing the last piece switches `phase` to `'paint'` (`finished` in `rules.ts`). "Valmis" sets `'done'`. A done house reopens in paint mode (derived in `App`, not saved). Hirsityöt is woodwork only: a frame goes straight to `'done'` and is never painted.
 - A `Project` is one saved building: `{id, buildingId, placed[], colors{}, phase}`. Several per building are allowed.
 - Hirsityöt (`Building.mode: 'runko'`; small Aitan runko on corner stones `stones: true`, medium Talon runko, large Pirtin runko): frames seen from the gable end, round pieces are log ends. Harder on purpose: every empty slot is shown, the tray offers all remaining kinds sorted by label A–Z, wall logs are their own kind `wall` ("Seinähirsi"), and wrong tries say why (`whyNot`, `KIND_INFO`). Its ? button opens the Rakennusohje guide (real terms). List a frame's two kengityshirret first (the kivijalka is drawn under them).
