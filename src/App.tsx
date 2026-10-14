@@ -53,7 +53,7 @@ const POHJA_HELP: [string, string][] = [
   ['Siirrä ja käännä', 'Vedä huonekalu uuteen paikkaan. Tai napauta sitä ja paina Käännä tai Poista. Valmis lopettaa muokkauksen.'],
   ['Muut', 'Muut huonekalut sopivat mihin tahansa huoneeseen.'],
   ['Peru', 'Peru kumoaa viimeisimmän muutoksen.'],
-  ['Valmis', 'Kun olet tyytyväinen, paina esimerkiksi Mökki valmis. Voit jatkaa myöhemmin.'],
+  ['Valmis', 'Paina Valmis, kun olet tyytyväinen. Voit jatkaa myöhemmin.'],
 ];
 const FIT_HINT = {
   wall: 'Tähän se ei mahdu. Kokeile toista kohtaa.',
@@ -319,7 +319,7 @@ export default function App() {
     const lack = missing(plan, next);
     const n = plan.goal.length - lack.length;
     if (!lack.length && missing(plan, furn).length) {
-      say(`Kaikki huoneet ovat valmiina! Hienoa! Paina ${building.name} valmis, tai jatka sisustamista.`);
+      say('Kaikki huoneet ovat valmiina! Hienoa! Paina Valmis, tai jatka sisustamista.');
       fanfare(sound);
     } else if (fresh) {
       say(`Hienoa! Tästä tuli ${ROOM_LABEL[fresh].toLowerCase()}. Huoneita valmiina ${n} / ${plan.goal.length}.`);
@@ -632,7 +632,7 @@ export default function App() {
             setHistory((h) => h.slice(0, -1)); setSelPiece(null); say('Peruttu.');
           }}>↶ Peru</button>
           {/* While a piece is chosen its own ✓ Valmis ends the edit; the building's one is hidden so the two never mix. */}
-          {!selPiece && <button onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ {building.name} valmis</button>}
+          {!selPiece && <button onClick={() => { update({ ...project, phase: 'done' }); go('pick'); }}>✓ Valmis</button>}
         </div>
       </>
     );
