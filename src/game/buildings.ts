@@ -83,6 +83,11 @@ export const SHUTOFF: Partial<Record<PieceKind, string>> = {
   breaker: 'Katkaise ensin virta. Napauta sähkökeskusta.',
   valve: 'Sulje vesi. Napauta pääventtiiliä.',
 };
+/** Hints for the last steps, turning them back on. */
+export const SHUTON: Partial<Record<PieceKind, string>> = {
+  breaker: 'Kytke virta takaisin. Napauta sähkökeskusta.',
+  valve: 'Avaa vesi. Napauta pääventtiiliä.',
+};
 
 /** What a frame piece does; said in Hirsityöt after placing it or when it is tried in the wrong place. */
 export const KIND_INFO: Partial<Record<PieceKind, string>> = {
@@ -225,14 +230,24 @@ const shutoffs = (water: boolean): Target[] => [
   { id: 'cable', kind: 'cable', name: 'Kaapeli', x: 90, y: 58, w: 266, h: 14, after: [water ? 'valve' : 'breaker'] },
   ...(water ? [{ id: 'pipe', kind: 'pipe' as const, name: 'Vesiputki', x: 88, y: 246, w: 226, h: 14, after: ['valve'] }] : []),
 ];
+// A room's targets: shut-offs, its own pieces, and last water back on, then power back on.
+const room = (water: boolean, pieces: Target[]): Target[] => {
+  const base = [...shutoffs(water), ...pieces];
+  const all = base.filter((t) => !SHUTOFF[t.kind]).map((t) => t.id);
+  const [breaker, valve] = base;
+  return [
+    ...base,
+    ...(water ? [{ ...valve!, id: 'valve-on', after: all, on: true }] : []),
+    { ...breaker!, id: 'breaker-on', after: water ? ['valve-on'] : all, on: true },
+  ];
+};
 // Keittiö: the sähkökeskus and pääventtiili are on the wall already.
 // Pipe is listed before the sink so the cabinet is drawn over it.
 export const keittio: Building = {
   id: 'keittio',
   name: 'Keittiö',
   mode: 'sisa',
-  targets: [
-    ...shutoffs(true),
+  targets: room(true, [
     { id: 'switch', kind: 'switch', name: 'Valokatkaisija', x: 102, y: 72, w: 40, h: 88, after: ['cable'] },
     { id: 'light', kind: 'light', name: 'Kattovalo', x: 175, y: 72, w: 50, h: 56, after: ['switch'] },
     { id: 'alarm', kind: 'alarm', name: 'Palovaroitin', x: 240, y: 20, w: 48, h: 26, after: ['cable'] },
@@ -240,7 +255,7 @@ export const keittio: Building = {
     { id: 'heater', kind: 'heater', name: 'Lämminvesivaraaja', x: 308, y: 118, w: 48, h: 130, after: ['pipe'] },
     { id: 'sink', kind: 'sink', name: 'Tiskiallas', x: 126, y: 190, w: 124, h: 80, after: ['heater'] },
     { id: 'tap', kind: 'tap', name: 'Hana', x: 168, y: 160, w: 40, h: 30, after: ['sink'] },
-  ],
+  ]),
 };
 
 // Kylpyhuone: tiled, no socket. The washbasin hangs on bolts; the tap goes on it.
@@ -249,8 +264,7 @@ export const kylpyhuone: Building = {
   name: 'Kylpyhuone',
   mode: 'sisa',
   tiles: true,
-  targets: [
-    ...shutoffs(true),
+  targets: room(true, [
     { id: 'switch', kind: 'switch', name: 'Valokatkaisija', x: 102, y: 72, w: 40, h: 88, after: ['cable'] },
     { id: 'light', kind: 'light', name: 'Kattovalo', x: 165, y: 72, w: 50, h: 56, after: ['switch'] },
     { id: 'vent', kind: 'vent', name: 'Poistoventtiili', x: 250, y: 18, w: 52, h: 28, after: ['cable'] },
@@ -258,7 +272,7 @@ export const kylpyhuone: Building = {
     { id: 'tap', kind: 'tap', name: 'Hana', x: 172, y: 122, w: 40, h: 30, after: ['basin'] },
     { id: 'wc', kind: 'wc', name: 'WC-istuin', x: 244, y: 186, w: 60, h: 84, after: ['pipe'] },
     { id: 'shower', kind: 'shower', name: 'Suihku', x: 316, y: 80, w: 40, h: 166, after: ['pipe'] },
-  ],
+  ]),
 };
 
 // Löylyhuone: a sähkökiuas, so no water work. The ohjauskeskus turns on both the kiuas and the light.
@@ -266,13 +280,12 @@ export const loylyhuone: Building = {
   id: 'loylyhuone',
   name: 'Löylyhuone',
   mode: 'sisa',
-  targets: [
-    ...shutoffs(false),
+  targets: room(false, [
     { id: 'bench', kind: 'bench', name: 'Lauteet', x: 56, y: 164, w: 196, h: 106, after: ['breaker'] },
     { id: 'lamp', kind: 'lamp', name: 'Saunavalaisin', x: 100, y: 96, w: 56, h: 32, after: ['cable'] },
     { id: 'control', kind: 'control', name: 'Ohjauskeskus', x: 196, y: 72, w: 44, h: 80, after: ['cable'] },
     { id: 'kiuas', kind: 'kiuas', name: 'Sähkökiuas', x: 272, y: 130, w: 72, h: 140, after: ['control'] },
-  ],
+  ]),
 };
 
 export const BUILDINGS: Building[] = [laavu, sauna, mokki, aitta, talorunko, pirtti, keittio, kylpyhuone, loylyhuone];

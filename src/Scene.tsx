@@ -14,6 +14,7 @@ const USABLE = new Set<PieceKind>(['switch', 'tap', 'shower', 'control']);
 const POWERED_BY: Partial<Record<PieceKind, PieceKind[]>> = { light: ['switch'], lamp: ['control'], kiuas: ['control'] };
 /** Shut-offs are tapped, not placed: the ring says what tapping does. */
 const SHUT_VERB: Partial<Record<PieceKind, string>> = { breaker: 'Katkaise virta', valve: 'Sulje vesi' };
+const ON_VERB: Partial<Record<PieceKind, string>> = { breaker: 'Kytke virta', valve: 'Avaa vesi' };
 
 // A lean roof is a 20-unit thick slab rising from bottom-left to top-right.
 const roofPoints = ({ x, y, w, h, lean }: Box) =>
@@ -71,15 +72,15 @@ function Shape({ t, fill, on = false }: { t: Box; fill: string; on?: boolean }) 
       </>
     );
   }
-  // A lit lamp has rays as well as a glow.
+  // A lit lamp has rays as well as a glow. Light never takes taps, so the tap or kiuas under it stays usable.
   if (t.kind === 'light')
     return (
       <>
         {on && (
-          <>
+          <g pointerEvents="none">
             <circle cx={x + w / 2} cy={y + h - 12} r={w * 0.7} fill="#fff3a0" fillOpacity={0.8} />
             <path d={`M${x + w / 2} ${y + h}v18M${x - 4} ${y + h - 4}l-12 10M${x + w + 4} ${y + h - 4}l12 10`} stroke="#e6b422" strokeWidth={4} strokeLinecap="round" />
-          </>
+          </g>
         )}
         <line x1={x + w / 2} x2={x + w / 2} y1={y} y2={y + 20} stroke="#5a3a1c" strokeWidth={3} />
         <rect x={x + w / 2 - 10} y={y} width={20} height={6} rx={2} fill={fill} {...ST} />
@@ -128,10 +129,10 @@ function Shape({ t, fill, on = false }: { t: Box; fill: string; on?: boolean }) 
   if (t.kind === 'lamp')
     return (
       <>
-        {on && <ellipse cx={x + w / 2} cy={y + h / 2} rx={w * 0.75} ry={h} fill="#fff3a0" fillOpacity={0.8} />}
+        {on && <ellipse cx={x + w / 2} cy={y + h / 2} rx={w * 0.75} ry={h} fill="#fff3a0" fillOpacity={0.8} pointerEvents="none" />}
         <rect x={x} y={y} width={w} height={h} rx={h / 2} fill={on ? '#fff3a0' : '#e2e2dc'} {...ST} />
         {[0.3, 0.5, 0.7].map((f) => <rect key={f} x={x + w * f - 3} y={y} width={6} height={h} fill={fill} {...ST} />)}
-        {on && <path d={`M${x + w / 2} ${y + h + 4}v12M${x - 6} ${y + h / 2}h-10M${x + w + 6} ${y + h / 2}h10`} stroke="#e6b422" strokeWidth={4} strokeLinecap="round" />}
+        {on && <path d={`M${x + w / 2} ${y + h + 4}v12M${x - 6} ${y + h / 2}h-10M${x + w + 6} ${y + h / 2}h10`} stroke="#e6b422" strokeWidth={4} strokeLinecap="round" pointerEvents="none" />}
       </>
     );
   // Sähkökiuas: stones on top, knobs on the front; when hot, heat rises in waves.
@@ -392,8 +393,13 @@ export function CarveLog({ step, done, parts, label, onPart }: { step: number; d
 }
 
 export function Scene({ building, project, selKind = null, thumb = false, svgRef, onSlot, onPaint, onUse, lit = [] }: SceneProps) {
+  // A shut-off is on until it is turned off, and again once its `on` target is placed.
+  const shutOn = (k: PieceKind) => {
+    const ts = building.targets.filter((t) => t.kind === k);
+    return !ts.some((t) => !t.on && isPlaced(project, t.id)) || ts.some((t) => t.on && isPlaced(project, t.id));
+  };
   const on = (t: Target) =>
-    t.kind in SHUTOFF ? !(isPlaced(project, t.id) && project.phase === 'build') : (POWERED_BY[t.kind] ?? [t.kind]).some((k) => lit.includes(k));
+    t.kind in SHUTOFF ? shutOn(t.kind) : (POWERED_BY[t.kind] ?? [t.kind]).some((k) => lit.includes(k));
   // Hirsityöt shows every empty slot: finding the right order is the player's challenge.
   const open = thumb || project.phase !== 'build' ? [] : (building.mode === 'runko' ? building.targets : available(building, project)).map((t) => t.id);
   return (
@@ -416,22 +422,26 @@ export function Scene({ building, project, selKind = null, thumb = false, svgRef
         <rect key={t.id} className="slot" x={t.x - 12} y={t.y - 12} width={t.w + 24} height={t.h + 24} fill="transparent" aria-hidden="true" onClick={() => onSlot(t.id)} />
       ))}
       {building.targets.map((t) => {
+        // A turn-on target shares its shut-off's place: the shut-off draws the fixture, this only adds its slot.
+        if (t.on && (isPlaced(project, t.id) || !open.includes(t.id) || !onSlot)) return null;
         if (isPlaced(project, t.id)) {
           const fill = project.colors[t.id] ?? DEFAULT_COLOR[t.kind];
           const act = thumb || project.phase === 'build' ? null
-            : onPaint ? { verb: 'Maalaa', fn: onPaint } : onUse && USABLE.has(t.kind) ? { verb: 'Kokeile', fn: onUse } : null;
+            : onPaint ? { verb: 'Maalaa', fn: onPaint } : onUse && (USABLE.has(t.kind) || t.kind in SHUTOFF) ? { verb: 'Kokeile', fn: onUse } : null;
           return act ? (
             <g key={t.id} className="slot" aria-label={`${act.verb}: ${t.name}`} {...press(() => act.fn(t.id))}>
+              {/* A tap or shower is a thin shape: its whole box takes the tap, not only the lines. */}
+              {act.verb === 'Kokeile' && <rect x={t.x} y={t.y} width={t.w} height={t.h} fill="transparent" />}
               <Shape t={t} fill={fill} on={on(t)} />
             </g>
           ) : (
             <g key={t.id}><Shape t={t} fill={fill} on={on(t)} /></g>
           );
         }
-        const fixture = t.kind in SHUTOFF && <Shape t={t} fill={DEFAULT_COLOR[t.kind]} on />;
+        const fixture = t.kind in SHUTOFF && !t.on && <Shape t={t} fill={DEFAULT_COLOR[t.kind]} on />;
         if (!open.includes(t.id) || !onSlot) return fixture ? <g key={t.id}>{fixture}</g> : null;
         return (
-          <g key={t.id} className="slot" aria-label={`${SHUT_VERB[t.kind] ?? 'Paikka'}: ${t.name}`} {...press(() => onSlot(t.id))}>
+          <g key={t.id} className="slot" aria-label={`${(t.on ? ON_VERB : SHUT_VERB)[t.kind] ?? 'Paikka'}: ${t.name}`} {...press(() => onSlot(t.id))}>
             {fixture}
             <Slot t={t} hot={selKind === t.kind} />
           </g>

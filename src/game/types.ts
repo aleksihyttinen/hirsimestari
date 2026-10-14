@@ -22,6 +22,8 @@ export interface Target {
   lean?: boolean;
   /** Hirsityöt: with hewing on, this log is hewn (veistetään) before it is placed. */
   carve?: boolean;
+  /** Sisätyöt: turns its shut-off back on (same place as the one turned off). */
+  on?: boolean;
 }
 
 export interface Building {

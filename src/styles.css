@@ -13,6 +13,8 @@ h1{font-size:1.8rem;margin:0}p{margin:0}
 .t{font-size:2.4rem;text-align:center}.ctr{text-align:center}
 .bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 button{font-size:1rem;font-weight:600;line-height:1.3;font-family:inherit;min-height:64px;min-width:64px;padding:10px 20px;border-radius:16px;border:3px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+/* Chromium draws its own ring on a tapped SVG slot even without :focus-visible; keep only the keyboard ring. */
+.slot:focus{outline:none}
 button:focus-visible,.slot:focus-visible{outline:5px solid var(--accent);outline-offset:3px}
 button:disabled{opacity:.45;cursor:default}
 button.main{background:var(--accent);color:var(--onacc);border-color:var(--accent)}
@@ -26,14 +28,14 @@ button.main{background:var(--accent);color:var(--onacc);border-color:var(--accen
 /* Landscape (e.g. a wall-mounted touch screen): the play screen fills the viewport, the picture shrinks to fit
    and the tray stays at the bottom, within reach from a wheelchair, so nothing needs scrolling. */
 @media (orientation:landscape){
-main.play{height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
+main.play{max-width:1600px;height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
 main.play #app{flex:1;min-height:0}
 /* One line is enough on a wide screen; a rare longer hint may grow the box and shrink the picture a little. */
 main.play .msg{min-height:calc(1.4em + 30px)}
 main.play .stage{flex:1;min-height:160px;position:relative}
 main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
-/* One row when it fits (Pirtti's 8 buttons do at 980 px); wraps rather than shrinking buttons below 100 px. */
-main.play .tray>button{flex:1 1 100px;min-width:100px;padding:8px 6px}
+/* Each button is as wide as its label (at least 100 px), so labels never spill; a long tray wraps to a second row. */
+main.play .tray>button{flex:1 1 auto;min-width:100px;padding:8px 10px}
 main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
 .tray,.palette,.menu{display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}

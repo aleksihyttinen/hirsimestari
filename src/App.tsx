@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
+import { BUILDINGS, CARVE_STEPS, FIX, FIX_TOOLS, KIND_INFO, KIND_LABEL, MATERIALS, PALETTE, SHUTOFF, SHUTON, TOOLS, getBuilding, type FixTool, type Material, type Tool } from './game/buildings';
 import { isDrag } from './game/gesture';
 import { available, availableKinds, canPlace, choices, isPlaced, nearestTarget, needsCarve, paint, place, remainingKinds, undo, unplaced, whyNot } from './game/rules';
 import { loadData, newProject, saveData, type Store } from './game/storage';
@@ -74,6 +74,7 @@ const SISA: [string, ReactNode][] = [
   ['Tiskiallas, WC-istuin ja kiuas', <>Kiinnitetään <b>pitkillä ruuveilla</b> ja <b>akkuruuvinvääntimellä</b>.</>],
   ['Hana ja suihku', <>Liitetään putkeen <b>puristusliittimellä</b>. Se kiristetään <b>jakoavaimella</b>.</>],
   ['Lauteet', <>Naulataan <b>nauloilla</b> ja <b>vasaralla</b>.</>],
+  ['Lopuksi', 'Kun kaikki on kiinni, avaa vesi ja kytke virta takaisin.'],
   ['Kokeile', 'Kun huone on valmis, kokeile valoa, vettä ja kiuasta.'],
   ['Oikeassa talossa', 'Sähkötyöt ja kiukaan kytkennän tekee aina sähköasentaja.'],
 ];
@@ -105,7 +106,7 @@ const pickKind = (kinds: PieceKind[], selKind: PieceKind | null) =>
 const trayKinds = (b: Building, p: Project) => (b.mode === 'runko' ? remainingKinds(b, p) : availableKinds(b, p)).filter((k) => !SHUTOFF[k]);
 const hintFor = (b: Building, p: Project, selKind: PieceKind | null) => {
   const off = available(b, p).find((t) => SHUTOFF[t.kind]);
-  if (off) return SHUTOFF[off.kind]!;
+  if (off) return (off.on ? SHUTON : SHUTOFF)[off.kind]!;
   const k = pickKind(trayKinds(b, p), selKind);
   return k ? placeHint(k) : 'Valitse pala alta.';
 };
@@ -262,6 +263,8 @@ export default function App() {
   }
   function tryPiece(id: string) {
     const k = building?.targets.find((t) => t.id === id)?.kind;
+    // A finished room's shut-offs are already back on: point to what can be tried instead.
+    if (building && k && SHUTOFF[k]) { say(`${k === 'breaker' ? 'Virta on jo päällä.' : 'Vesi on jo auki.'} ${tryHint(building, lit)}`); return; }
     const say3 = k && TRY[k];
     if (!building || !k || !say3) return;
     const next = lit.includes(k) ? lit.filter((x) => x !== k) : [...lit, k];

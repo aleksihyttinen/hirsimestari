@@ -241,6 +241,19 @@ describe('Sisätyöt', () => {
     expect(availableKinds(loylyhuone, newProject('loylyhuone', 'l'))).toEqual(['breaker']);
     expect(whyNot(loylyhuone, place(loylyhuone, newProject('loylyhuone', 'l'), 'breaker'), 'kiuas')).toEqual(['Ohjauskeskus']);
   });
+  it('the last steps open the water, then turn the power back on', () => {
+    for (const b of [keittio, kylpyhuone, loylyhuone]) {
+      const water = b.targets.some((t) => t.id === 'valve');
+      let p = newProject(b.id, 'x');
+      for (const t of b.targets.filter((x) => !x.on)) p = place(b, p, t.id);
+      expect(p.phase, b.id).toBe('build');
+      expect(available(b, p).map((t) => t.id)).toEqual([water ? 'valve-on' : 'breaker-on']);
+      if (water) p = place(b, p, 'valve-on');
+      expect(available(b, p).map((t) => t.id)).toEqual(['breaker-on']);
+      p = place(b, p, 'breaker-on');
+      expect(p.phase).toBe('done');
+    }
+  });
   it('every room piece but the shut-offs is fastened, at one to three spots on the piece', () => {
     for (const b of BUILDINGS.filter((x) => x.mode === 'sisa'))
       for (const t of b.targets) {
