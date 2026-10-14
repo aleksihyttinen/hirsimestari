@@ -23,23 +23,38 @@ button.main{background:var(--accent);color:var(--onacc);border-color:var(--accen
 .msg{min-height:calc(2.8em + 30px);font-size:1.25rem;font-weight:700;padding:12px 16px;background:var(--card);border:3px solid var(--line);border-radius:16px}
 /* Reserve lines for the hint so the picture and tray below do not jump as it changes; narrow portrait screens wrap more. */
 @media (max-width:600px) and (orientation:portrait){.msg{min-height:calc(5.6em + 30px)}}
-.stage{background:#dcebf2;border:3px solid var(--line);border-radius:20px}
+/* Clip the picture to the rounded corners: at some sizes the ground fills the whole box. */
+.stage{background:#dcebf2;border:3px solid var(--line);border-radius:20px;overflow:hidden}
+.side{display:flex;flex-direction:column;gap:8px}
+.count{font-weight:700;display:none}
+/* The scroll hint sits under the hint, right above the end of the tray; in portrait it would move the picture. */
+.more{display:none}
 .stage svg{display:block;width:100%;height:auto;max-height:56vh}
 /* Landscape (e.g. a wall-mounted touch screen): the play screen fills the viewport, the picture shrinks to fit
    and the tray stays at the bottom, within reach from a wheelchair, so nothing needs scrolling. */
-@media (orientation:landscape){
+/* Below 900 px wide (phones, small windows) the hint column would squeeze the picture; every tablet is 1024+ in landscape.
+   4/5 rather than landscape: a desktop window a little taller than wide still fits; portrait tablets (~3/4) do not. */
+@media (min-width:900px) and (min-aspect-ratio:4/5){
 main.play{max-width:1600px;height:calc(100vh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
-main.play #app{flex:1;min-height:0}
-/* One line is enough on a wide screen; a rare longer hint may grow the box and shrink the picture a little. */
-main.play .msg{min-height:calc(1.4em + 30px)}
-main.play .stage{flex:1;min-height:160px;position:relative}
+/* Every box has a fixed size so a new hint, step name or tray never resizes the picture: the hint sits beside
+   the picture (a 4:3 picture leaves spare width anyway), the bar never wraps and the tray row keeps its height
+   even when it is empty (fastening spots). */
+main.play #app{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(13rem,30%,21rem);grid-template-rows:auto minmax(0,1fr) minmax(calc(60px + 1.8rem),auto)}
+main.play #app>*{grid-column:1/-1;grid-row:3}
+main.play #app>.bar{grid-row:1;flex-wrap:nowrap}
+main.play .bar h1{flex:1;min-width:0;font-size:1.4rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main.play #app>.side{grid-column:2;grid-row:2;min-height:0}
+main.play .side>.msg{flex:1;min-height:0;overflow-y:auto}
+main.play .more,main.play .count{display:block}main.play .more{font-size:.9rem}
+main.play .cnt{display:none}
+main.play #app>.stage{grid-column:1;grid-row:2;position:relative}
 main.play .stage svg{position:absolute;inset:0;height:100%;max-height:none}
 /* Each button is as wide as its label (at least 100 px) and never shrinks, so labels never spill. */
 main.play .tray>button{flex:1 0 auto;min-width:100px;padding:8px 10px}
 main.play .piece svg{width:100%;max-width:90px;height:44px}
 }
 /* Short landscape (e.g. an 8.7" tablet, ~700 px tall): every pixel goes to the picture. */
-@media (orientation:landscape) and (max-height:820px){
+@media (min-width:900px) and (min-aspect-ratio:4/5) and (max-height:820px){
 main.play{padding:12px 16px}
 main.play #app{gap:12px}
 }

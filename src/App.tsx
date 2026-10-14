@@ -289,6 +289,14 @@ export default function App() {
     say(`Maalattu: ${c.name}.`);
   }
 
+  // Progress: in the bar, or above the hint in wide landscape (the bar copy is hidden there, see .cnt).
+  const side = (count: string) => (
+    <div className="side">
+      <p className="count">{count}</p>
+      <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+      {trayScrolls && <p className="more">↔ Pyyhkäise riviä sivulle, niin näet lisää.</p>}
+    </div>
+  );
   let body: JSX.Element;
   const mine = data.projects.filter((p) => getBuilding(p.buildingId)?.mode === mode);
   // Pick and new screen texts: title, new button, empty list, choose title.
@@ -422,13 +430,14 @@ export default function App() {
   } else if (view === 'carve' && carving && building) {
     const s = CARVE_STEPS[carving.step]!;
     const name = building.targets.find((t) => t.id === carving.id)?.name ?? '';
+    const count = `Vaihe ${carving.step + 1} / ${CARVE_STEPS.length}: ${s.name}`;
     body = (
       <>
         <div className="bar">
           <button onClick={() => { setCarving(null); go('game'); say('Veisto keskeytyi. Voit aloittaa uudelleen.'); }}>← Takaisin</button>
-          <h1>Veistä: {name}</h1>{help}<span>Vaihe {carving.step + 1} / {CARVE_STEPS.length}: {s.name}</span>
+          <h1>Veistä: {name}</h1>{help}<span className="cnt">{count}</span>
         </div>
-        <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+        {side(count)}
         <div className="stage">
           <CarveLog step={carving.step} done={carving.done} parts={s.parts} label={`${s.name}: ${name}`} onPart={carvePart} />
         </div>
@@ -444,13 +453,14 @@ export default function App() {
     );
   } else if (view === 'fix' && fixing && building) {
     const name = building.targets.find((t) => t.id === fixing.id)?.name ?? '';
+    const count = `Vaihe ${fixing.step + 1} / ${FIX_STEPS.length}: ${FIX_STEPS[fixing.step]}`;
     body = (
       <>
         <div className="bar">
           <button onClick={() => { setFixing(null); go('game'); say('Kiinnitys keskeytyi. Voit aloittaa uudelleen.'); }}>← Takaisin</button>
-          <h1>Kiinnitä: {name}</h1>{help}<span>Vaihe {fixing.step + 1} / {FIX_STEPS.length}: {FIX_STEPS[fixing.step]}</span>
+          <h1>Kiinnitä: {name}</h1>{help}<span className="cnt">{count}</span>
         </div>
-        <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+        {side(count)}
         <div className="stage">
           <FixPiece kind={fixing.kind} done={fixing.done} active={fixing.step === 2} label={`Kiinnitä: ${name}`} onSpot={fixSpot} />
         </div>
@@ -464,14 +474,14 @@ export default function App() {
       </>
     );
   } else if (building && shown && project) {
+    const count = `Palat ${shown.placed.length} / ${building.targets.length}`;
     body = (
       <>
         <div className="bar">
           <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
-          {help}
-          <span>Palat {shown.placed.length} / {building.targets.length}</span>
+          {help}<span className="cnt">{count}</span>
         </div>
-        <div className="msg" role="status" aria-live="polite"><span key={msg.n}>{msg.text}</span></div>
+        {side(count)}
         <div className="stage">
           <Scene
             building={building} project={shown} selKind={sel} svgRef={svgRef}
@@ -519,7 +529,7 @@ export default function App() {
         ) : building.mode ? (
           <div className="col"><button className="main big1" onClick={() => go('pick')}>✓ Valmis</button></div>
         ) : (
-          <div className="palette" role="group" aria-label="Värit">
+          <div ref={trayRef} className="palette" role="group" aria-label="Värit">
             {PALETTE.map((c, i) => (
               <button key={c.name} className="sw" aria-pressed={selColor === i} onClick={() => { setSelColor(i); say('Napauta osaa kuvassa.'); }}>
                 <i style={{ background: c.value ?? 'linear-gradient(135deg, #c98a4b 50%, #bfe3f5 50%)' }} />{c.name}
