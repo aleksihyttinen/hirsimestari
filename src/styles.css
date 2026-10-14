@@ -80,7 +80,13 @@ main.play :is(.tray,.palette){flex-wrap:nowrap;overflow-x:auto}
 main.play :is(.tray,.palette,.strip)>*{flex-shrink:0}
 main.play .strip{display:flex;gap:14px;flex:1 1 auto;min-width:0;overflow-x:auto}
 /* Peru is tinted so it reads as an action, not one more piece. */
-main.play .tray>button:not(.piece){background:color-mix(in srgb,var(--line) 14%,var(--card))}
+main.play :is(.tray,.palette)>button:not(.piece,.main){background:color-mix(in srgb,var(--line) 14%,var(--card))}
+/* Phones: ✓ Valmis gets a full-width line of its own under the tray, so the pieces and Peru keep their row. */
+main.play :is(.tray,.palette){flex-wrap:wrap}main.play .strip{flex:1 1 0}main.play :is(.tray,.palette)>.main{flex-basis:100%}
+/* Tablets: Valmis sits beside Peru on the tray's one row. */
+@media (min-width:900px) and (min-aspect-ratio:4/5), (min-aspect-ratio:3/2) and (max-height:500px){
+main.play :is(.tray,.palette){flex-wrap:nowrap}main.play .strip{flex:1 1 auto}main.play :is(.tray,.palette)>.main{flex-basis:auto}
+}
 /* A sideways swipe on a piece scrolls an overflowing tray (.scrolls); dragging a piece up to the picture still works. */
 .drag{touch-action:none}
 .scrolls>.drag{touch-action:pan-x}

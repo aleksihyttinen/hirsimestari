@@ -593,6 +593,21 @@ function PlanScene({ building, project, thumb, svgRef, placing, selPiece, onCell
   );
 }
 
+/** Runs 0 → 1 over `ms` once (1 at once when `still`). */
+function useClock(still: boolean, ms: number) {
+  const [t, setT] = useState(still ? 1 : 0);
+  useEffect(() => {
+    if (still) return;
+    const start = performance.now();
+    let id = requestAnimationFrame(function step(now) {
+      const v = Math.min(1, (now - start) / ms);
+      setT(v);
+      if (v < 1) id = requestAnimationFrame(step);
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return t;
+}
 const ease = (v: number) => { const c = Math.min(1, Math.max(0, v)); return c * c * (3 - 2 * c); };
 const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
 const pts = (ps: [number, number][]) => ps.map((p) => p.join(',')).join(' ');
@@ -600,17 +615,7 @@ const pts = (ps: [number, number][]) => ps.map((p) => p.join(',')).join(' ');
  * with the plan's doors and windows on them, and the roof comes down over 4 s (at once when `still`). */
 export function Outside({ building, project, still }: { building: Building; project: Project; still: boolean }) {
   const plan = building.plan!;
-  const [t, setT] = useState(() => (still ? 1 : 0));
-  useEffect(() => {
-    if (t >= 1) return;
-    const start = performance.now();
-    let id = requestAnimationFrame(function step(now) {
-      const v = Math.min(1, (now - start) / 4000);
-      setT(v);
-      if (v < 1) id = requestAnimationFrame(step);
-    });
-    return () => cancelAnimationFrame(id);
-  }, []);
+  const t = useClock(still, 4000);
   // The walls stand on the outer edge of the plan's thick outer wall (4 units out), so its marks stay inside.
   const W = CELL * plan.cols + 4, D = CELL * plan.rows + 4, b0 = -4;
   // shortcut: the ridge runs along the long x side, which every plan has; a plan deeper than wide needs the roof turned.
@@ -677,11 +682,112 @@ export function Outside({ building, project, still }: { building: Building; proj
   );
 }
 
+/** Finish view of a Rakenna house, drawn from its gable end: the front stays as built and painted, and over 3.5 s the
+ * logs, roof and chimney grow back into depth as the camera pulls out (at once when `still`). */
+/** Convex hull of points (monotone chain), for a log swept back into depth. */
+function hull(ps: [number, number][]) {
+  const s = [...ps].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list: [number, number][]) => {
+    const h: [number, number][] = [];
+    for (const p of list) {
+      while (h.length > 1 && cross(h[h.length - 2]!, h[h.length - 1]!, p) <= 0) h.pop();
+      h.push(p);
+    }
+    return h.slice(0, -1);
+  };
+  return [...half(s), ...half(s.reverse())];
+}
+/** The outline of a log as drawn in `Shape` (a bar with round ends), moved by `dx,dy`. */
+const pill = (l: Target, dx: number, dy: number): [number, number][] => {
+  const r = l.h / 2 - 1, cy = l.y + l.h / 2 + dy;
+  return Array.from({ length: 13 }, (_, i) => (Math.PI / 12) * i - Math.PI / 2).flatMap((a): [number, number][] => [
+    [l.x + r + dx - r * Math.cos(a), cy + r * Math.sin(a)], [l.x + l.w - r + dx + r * Math.cos(a), cy + r * Math.sin(a)],
+  ]);
+};
+
+/** Finish view of a Rakenna house, drawn from its gable end: the front stays as built and painted, and over 3.5 s the
+ * building grows back into depth as the camera pulls out (at once when `still`). A closed house's logs become long
+ * round logs; a laavu stays open, with a second log end at the back under the roof. */
+export function HouseOutside({ building, project, still }: { building: Building; project: Project; still: boolean }) {
+  const t = useClock(still, 3500);
+  const logs = building.targets.filter((x) => x.kind === 'log');
+  const x0 = Math.min(...logs.map((l) => l.x)), x1 = Math.max(...logs.map((l) => l.x + l.w));
+  const roof = building.targets.find((x) => x.kind === 'roof');
+  const open = !!roof?.lean;
+  // Depth runs up and to the right (oblique view), so the front keeps its shape and paint.
+  const kx = 0.55, ky = -0.32;
+  const full = (x1 - x0) * 0.9;
+  const d = full * ease(t / 0.6);
+  const dx = d * kx, dy = d * ky;
+  const at = (x: number, y: number, dd: number) => `${x + dd * kx},${y + dd * ky}`;
+  // A face from edge (ax,ay)-(bx,by) at depth `from` back to `from + dd`, shaded by `dark`.
+  const face = (k: string, ax: number, ay: number, bx: number, by: number, fill: string, dark: number, from = 0, dd = d) => (
+    <g key={k}>
+      <polygon points={[at(ax, ay, from), at(bx, by, from), at(bx, by, from + dd), at(ax, ay, from + dd)].join(' ')} fill={fill} {...ST} />
+      <polygon points={[at(ax, ay, from), at(bx, by, from), at(bx, by, from + dd), at(ax, ay, from + dd)].join(' ')} fill="#000" opacity={dark} />
+    </g>
+  );
+  const color = (x: Target) => project.colors[x.id] ?? DEFAULT_COLOR[x.kind];
+  // Round log ends leave small gaps where two logs meet; fill them (where both logs are) so nothing shows through.
+  const gaps = (ox: number, oy: number) => logs.slice(1).map((l, i) => {
+    const b = logs[i]!, gx0 = Math.max(l.x, b.x), gx1 = Math.min(l.x + l.w, b.x + b.w);
+    return gx1 > gx0 && <rect key={l.id} x={gx0 + ox + 2} y={l.y + l.h - l.h / 2 + oy} width={gx1 - gx0 - 4} height={l.h} fill="#6b4a2b" />;
+  });
+  const chimney = building.targets.find((x) => x.kind === 'chimney');
+  const xs = building.targets.flatMap((x) => [x.x, x.x + x.w + full * kx]);
+  const ys = building.targets.flatMap((x) => [x.y + full * ky, x.y + x.h]);
+  const m = 40;
+  const box = [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) - Math.min(...xs) + 2 * m, 300 - Math.min(...ys) + m];
+  const z = ease(t / 0.8);
+  const vb = [lerp(0, box[0]!, z), lerp(0, box[1]!, z), lerp(400, box[2]!, z), lerp(300, box[3]!, z)];
+  return (
+    <svg viewBox={vb.join(' ')} role="img" aria-label={`${building.name} on valmis`}>
+      <defs><filter id="shade"><feColorMatrix type="matrix" values="0.72 0 0 0 0 0 0.72 0 0 0 0 0 0.72 0 0 0 0 0 1 0" /></filter></defs>
+      {/* Sky, and grass whose far edge moves back with the depth. */}
+      <rect x={vb[0]! - 2000} y={vb[1]! - 2000} width={vb[2]! + 4000} height={vb[3]! + 4000} fill="#dcebf2" />
+      <rect x={vb[0]! - 2000} y={270 + dy - 30 * z} width={vb[2]! + 4000} height={2000} fill="#7fae7a" />
+      {/* Laavu: the back log end, the same logs as the front, in shade. */}
+      {open && d > 0 && (
+        <g transform={`translate(${dx} ${dy})`} filter="url(#shade)">
+          {gaps(0, 0)}
+          <Scene building={{ ...building, targets: logs }} project={project} thumb nest />
+        </g>
+      )}
+      {/* A closed house: each log swept back as a round log, bottom first, so the one above lies on it. */}
+      {!open && d > 0 && logs.map((l) => (
+        <g key={l.id}>
+          <polygon points={pts(hull([...pill(l, 0, 0), ...pill(l, dx, dy)]))} fill={color(l)} {...ST} />
+          <polygon points={pts(hull([...pill(l, 0, 0), ...pill(l, dx, dy)]))} fill="#000" opacity={0.22} />
+          <line x1={l.x + l.w / 2} y1={l.y + l.h * 0.25} x2={l.x + l.w / 2 + dx} y2={l.y + l.h * 0.25 + dy} stroke="#fff" strokeOpacity={0.25} strokeWidth={3} />
+        </g>
+      ))}
+      {roof && (open ? <>
+        {face('rt', roof.x, roof.y + roof.h - 20, roof.x + roof.w, roof.y, color(roof), 0)}
+        {face('re', roof.x + roof.w, roof.y, roof.x + roof.w, roof.y + 20, color(roof), 0.25)}
+      </> : <>
+        {face('rl', roof.x, roof.y + roof.h, roof.x + roof.w / 2, roof.y, color(roof), 0.12)}
+        {face('rr', roof.x + roof.w / 2, roof.y, roof.x + roof.w, roof.y + roof.h, color(roof), 0)}
+      </>)}
+      {/* The chimney stands halfway back on the roof, so the front gable is drawn over its foot. */}
+      {chimney && d > 0 && (
+        <g>
+          {face('ct', chimney.x, chimney.y, chimney.x + chimney.w, chimney.y, color(chimney), 0, d / 2, chimney.w)}
+          {face('cr', chimney.x + chimney.w, chimney.y, chimney.x + chimney.w, chimney.y + chimney.h, color(chimney), 0.22, d / 2, chimney.w)}
+          <rect x={chimney.x + (d / 2) * kx} y={chimney.y + (d / 2) * ky} width={chimney.w} height={chimney.h} fill={color(chimney)} {...ST} />
+        </g>
+      )}
+      {gaps(0, 0)}
+      <Scene building={d > 0 ? { ...building, targets: building.targets.filter((x) => x.kind !== 'chimney') } : building} project={project} thumb nest />
+    </svg>
+  );
+}
+
 export function Scene(props: SceneProps) {
   return props.building.plan ? <PlanScene {...props} /> : <BuildScene {...props} />;
 }
 
-function BuildScene({ building, project, selKind = null, thumb = false, svgRef, onSlot, onPaint, onUse, lit = [] }: SceneProps) {
+function BuildScene({ building, project, selKind = null, thumb = false, svgRef, onSlot, onPaint, onUse, lit = [], nest }: SceneProps) {
   // A shut-off is on until it is turned off, and again once its `on` target is placed.
   const shutOn = (k: PieceKind) => {
     const ts = building.targets.filter((t) => t.kind === k);
@@ -691,7 +797,8 @@ function BuildScene({ building, project, selKind = null, thumb = false, svgRef, 
     t.kind in SHUTOFF ? shutOn(t.kind) : (POWERED_BY[t.kind] ?? [t.kind]).some((k) => lit.includes(k));
   const open = thumb || project.phase !== 'build' ? [] : openTargets(building, project).map((t) => t.id);
   return (
-    <svg ref={svgRef} viewBox={thumb ? '40 10 320 280' : '0 0 400 300'} role={thumb ? 'img' : 'group'} aria-label={building.name} aria-hidden={thumb || undefined}>
+    <svg ref={svgRef} viewBox={thumb && !nest ? '40 10 320 280' : '0 0 400 300'} role={thumb ? 'img' : 'group'} aria-label={building.name} aria-hidden={thumb || undefined}
+      {...(nest && { x: 0, y: 0, width: 400, height: 300 })}>
       {/* A room: log wall seen from inside and a plank floor; outside: grass. */}
       {building.mode === 'sisa' && (
         <>
@@ -700,7 +807,7 @@ function BuildScene({ building, project, selKind = null, thumb = false, svgRef, 
           {building.tiles && Array.from({ length: 13 }, (_, i) => <line key={i} x1={30 * (i + 1)} x2={30 * (i + 1)} y1={0} y2={270} stroke="#b9c6cc" strokeWidth={2} />)}
         </>
       )}
-      <rect x={0} y={270} width={400} height={30} fill={building.mode === 'sisa' ? '#a0703f' : '#7fae7a'} />
+      {!nest && <rect x={0} y={270} width={400} height={30} fill={building.mode === 'sisa' ? '#a0703f' : '#7fae7a'} />}
       {/* Kivijalka under the two kengityshirret, which frames list first; or a corner stone under each. */}
       {building.mode === 'runko' && building.stones && building.targets.slice(0, 2).map((t) => <rect key={t.id} x={t.x - 4} y={t.y + t.h} width={t.w + 8} height={270 - t.y - t.h} rx={4} fill="#9a9a92" {...ST} />)}
       {building.mode === 'runko' && !building.stones && <rect x={building.targets[0]!.x - 4} y={252} width={building.targets[1]!.x + building.targets[1]!.w - building.targets[0]!.x + 8} height={18} rx={3} fill="#9a9a92" {...ST} />}

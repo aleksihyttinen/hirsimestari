@@ -5,7 +5,7 @@ import { fitNear, left, missing, recognized, turnNear, whyNotFit } from './game/
 import { canPlace, choices, hintFor, isPlaced, nearestTarget, needsCarve, openTargets, paint, pickKind, place, placeHint, trayKinds, undo, unplaced, whyNot } from './game/rules';
 import { loadData, newProject, saveData, type Store } from './game/storage';
 import type { Building, Furniture, Item, PieceKind, Project, SaveData, Settings } from './game/types';
-import { CarveLog, FixPiece, Icon, ItemIcon, PartIcon, Scene, ToolIcon, Outside, planCell } from './Scene';
+import { CarveLog, FixPiece, HouseOutside, Icon, ItemIcon, PartIcon, Scene, ToolIcon, Outside, planCell } from './Scene';
 
 type View = 'home' | 'modes' | 'pick' | 'new' | 'settings' | 'game' | 'carve' | 'fix' | 'help' | 'finish';
 
@@ -43,7 +43,7 @@ const MENU_HELP: [string, string][] = [
 const BUILD_HELP: [string, string][] = [
   ['Valitse pala', 'Napauta palaa kuvan alla.'],
   ['Aseta pala', 'Napauta kohtaa, jossa on ＋. Voit myös vetää palan kuvaan.'],
-  ['Peru', 'Peru poistaa viimeksi asetetun palan.'],
+  ['Peru', 'Peru poistaa viimeksi asetetun palan. Maalatessa se peruu viimeisen maalauksen.'],
   ['Maalaa', 'Kun rakennus on valmis, valitse väri. Napauta sitten osaa.'],
   ['Valmis', 'Paina Valmis, kun olet tyytyväinen. Voit maalata myöhemmin uudelleen.'],
 ];
@@ -53,7 +53,7 @@ const POHJA_HELP: [string, string][] = [
   ['Siirrä ja käännä', 'Vedä huonekalu uuteen paikkaan. Tai napauta sitä ja paina Käännä tai Poista. Valmis lopettaa muokkauksen.'],
   ['Muut', 'Muut huonekalut sopivat mihin tahansa huoneeseen.'],
   ['Peru', 'Peru kumoaa viimeisimmän muutoksen.'],
-  ['Valmis', 'Kun kaikki huoneet ovat valmiina, Valmis tulee ylös. Voit jatkaa myöhemmin.'],
+  ['Valmis', 'Kun kaikki huoneet ovat valmiina, Valmis tulee Perun viereen. Voit jatkaa myöhemmin.'],
 ];
 const FIT_HINT = {
   wall: 'Tähän se ei mahdu. Kokeile toista kohtaa.',
@@ -132,6 +132,8 @@ export default function App() {
   const [selItem, setSelItem] = useState<Item | null>(null);
   const [selPiece, setSelPiece] = useState<string | null>(null);
   const [history, setHistory] = useState<Furniture[][]>([]);
+  // Rakenna: colours before each paint, for Peru (not saved).
+  const [painted, setPainted] = useState<Project['colors'][]>([]);
   // A piece being dragged (from the tray, or `id` when already placed) and where it would land.
   const planDrag = useRef<{ item: Item; id?: string; x: number; y: number; active: boolean } | null>(null);
   const [preview, setPreview] = useState<Furniture | null>(null);
@@ -215,7 +217,7 @@ export default function App() {
     const p = fresh ?? data.projects.find((x) => x.id === id);
     const b = p && getBuilding(p.buildingId);
     if (!p || !b) return;
-    setOpenId(id); setSelKind(null); setSelColor(1); setLit([]); setSelItem(null); setSelPiece(null); setHistory([]);
+    setOpenId(id); setSelKind(null); setSelColor(1); setLit([]); setSelItem(null); setSelPiece(null); setHistory([]); setPainted([]);
     say(b.plan ? `Sisusta ${b.name.toLowerCase()}. Vedä huonekalu alta kuvaan.` : p.phase === 'build' ? hintFor(b, p, null) : b.mode === 'runko' ? 'Runko on valmis.' : b.mode === 'sisa' ? tryHint(b, []) : 'Valitse väri. Napauta sitten osaa.');
     go('game');
   }
@@ -426,6 +428,7 @@ export default function App() {
   function paintPiece(id: string) {
     if (!shown || !project) return;
     const c = PALETTE[selColor] ?? PALETTE[1]!;
+    setPainted((h) => [...h, project.colors]);
     update({ ...paint(shown, id, c.value), phase: project.phase });
     beep(sound, 440, 0.1);
     say(`Maalattu: ${c.name}.`);
@@ -622,7 +625,8 @@ export default function App() {
     body = (
       <div className="col finish">
         <h1>✓ {building.name} on valmis!</h1>
-        <div className="stage">{building.plan ? <Outside building={building} project={project} still={still} /> : <Scene building={building} project={project} thumb />}</div>
+        <div className="stage">{building.plan ? <Outside building={building} project={project} still={still} />
+          : building.mode ? <Scene building={building} project={project} thumb /> : <HouseOutside building={building} project={project} still={still} />}</div>
         <button className="main big1" onClick={() => go('pick')}>Takaisin</button>
       </div>
     );
@@ -634,9 +638,6 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
-          {/* In the bar so the tray keeps room for furniture on narrow screens; only once every room is done,
-              and hidden while a piece is chosen (its own ✓ Valmis ends the edit) so the two never mix. */}
-          {!selPiece && !missing(plan, furn).length && <button className="main" onClick={finish}>✓ Valmis</button>}
           {speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
@@ -665,6 +666,8 @@ export default function App() {
             update({ ...project, furniture: history[history.length - 1] });
             setHistory((h) => h.slice(0, -1)); setSelPiece(null); say('Peruttu.');
           }}>↶ Peru</button>
+          {/* Only once every room is done, and hidden while a piece is chosen (its own ✓ Valmis ends the edit) so the two never mix. */}
+          {!selPiece && !missing(plan, furn).length && <button className="main" onClick={finish}>✓ Valmis</button>}
         </div>
       </>
     );
@@ -674,8 +677,6 @@ export default function App() {
       <>
         <div className="bar">
           <button onClick={() => go('pick')}>← Takaisin</button><h1>{building.name}</h1>
-          {/* Every mode's ✓ Valmis sits in the bar, once the building is finished. */}
-          {shown.phase !== 'build' && <button className="main" onClick={finish}>✓ Valmis</button>}
           {speaker}{help}<span className="cnt">{count}</span>
         </div>
         {side(count)}
@@ -727,7 +728,10 @@ export default function App() {
             {arrow(1)}
             <button disabled={shown.placed.length === 0} onClick={() => { update(undo(project)); say('Peruttu.'); }}>↶ Peru</button>
           </div>
-        ) : building.mode ? null : (
+        ) : building.mode ? (
+          // A finished frame or room has nothing left to do here: the big ✓ Valmis takes the tray's place.
+          <div className="col"><button className="main big1" onClick={finish}>✓ Valmis</button></div>
+        ) : (
           <div className="palette" role="group" aria-label="Värit">
             {arrow(-1)}
             <div ref={trayRef} className="strip">
@@ -738,6 +742,11 @@ export default function App() {
               ))}
             </div>
             {arrow(1)}
+            <button disabled={!painted.length} onClick={() => {
+              update({ ...project, colors: painted[painted.length - 1]! });
+              setPainted((h) => h.slice(0, -1)); say('Peruttu.');
+            }}>↶ Peru</button>
+            <button className="main" onClick={finish}>✓ Valmis</button>
           </div>
         )}
       </>
