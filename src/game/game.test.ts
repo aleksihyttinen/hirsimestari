@@ -297,7 +297,7 @@ describe('huoneet: omakotitalo', () => {
     f('5', 'table', 6, 1), f('6', 'chair', 6, 2), f('7', 'chair', 7, 2),
     f('8', 'sofa', 6, 6, 2), f('9', 'coffee', 7, 5), f('10', 'tv', 7, 3),
     f('11', 'coats', 3, 4), f('12', 'shoes', 4, 6),
-    f('13', 'wardrobe', 2, 0, 1), f('14', 'wardrobe', 1, 4), f('15', 'armchair', 9, 6), f('16', 'plant', 9, 0), f('17', 'plant', 5, 6), f('19', 'dresser', 2, 2), f('20', 'dresser', 2, 6),
+    f('13', 'wardrobe', 2, 0, 1), f('15', 'armchair', 9, 6), f('16', 'plant', 9, 0), f('17', 'plant', 5, 6),
   ];
   it('furniture stays inside one room, off door cells and off other pieces', () => {
     expect(whyNotFit(plan, [], f('x', 'bed', 2, 0, 1))).toBe('wall'); // reaches into the bathroom
@@ -329,7 +329,7 @@ describe('huoneet: omakotitalo', () => {
     expect(recognized(plan, home.filter((p) => p.item !== 'coffee')).e).toBeUndefined();
     // Each building has its own rules: a sofa and an armchair are a living room in the mökki, not here.
     expect(recognized(plan, [f('a', 'sofa', 6, 4), f('b', 'armchair', 6, 5)]).e).toBeUndefined();
-    expect(recognized(mokkipohja.plan!, [f('a', 'sofa', 4, 4), f('b', 'armchair', 4, 5)]).b).toEqual(['living']);
+    expect(recognized(mokkipohja.plan!, [f('a', 'loveseat', 4, 4), f('b', 'armchair', 4, 5)]).b).toEqual(['living']);
   });
   it('saves furniture, drops what does not fit, and keeps the plan in build', () => {
     const s = fakeStore();
@@ -355,14 +355,14 @@ describe('huoneet: every plan', () => {
   // One way to furnish each, using exactly the pieces the tray offers.
   const homes: [typeof pihasauna, Furniture[], Record<string, string[]>][] = [
     [pihasauna, [
-      f('1', 'bench', 0, 0), f('2', 'coats', 2, 2), f('3', 'table', 0, 1, 1), f('4', 'chair', 1, 1), f('5', 'chair', 1, 2), f('6', 'plant', 2, 3),
+      f('1', 'bench', 0, 0), f('2', 'coats', 2, 2), f('6', 'plant', 2, 3),
       f('7', 'platform', 3, 3), f('8', 'bucket', 4, 2),
     ], { a: ['dressing'], c: ['sauna'] }],
     [mokkipohja, [
-      f('1', 'bed', 0, 0), f('2', 'nightstand', 1, 0), f('3', 'wardrobe', 0, 2),
+      f('1', 'bed', 0, 0), f('2', 'nightstand', 1, 0),
       f('4', 'platform', 1, 5), f('5', 'bucket', 2, 4),
       f('6', 'bench', 4, 1), f('7', 'longtable', 4, 2), f('8', 'bench', 4, 3),
-      f('9', 'sofa', 7, 3, 1), f('10', 'armchair', 6, 5),
+      f('9', 'loveseat', 7, 3, 1), f('10', 'armchair', 6, 5),
       f('12', 'coats', 3, 0), f('13', 'plant', 7, 2),
     ], { a: ['bedroom'], d: ['sauna'], b: ['kitchen', 'living'] }],
   ];

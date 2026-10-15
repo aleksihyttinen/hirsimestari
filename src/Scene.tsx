@@ -403,6 +403,15 @@ export function CarveLog({ step, done, parts, label, onPart }: { step: number; d
   );
 }
 
+// A sofa with n seat cushions.
+const couch = (w: number, h: number, n: number) => (
+  <>
+    <rect width={w} height={h * 0.35} rx={4} {...FL('#4f7aa6')} />
+    <rect width={9} height={h} rx={4} {...FL('#4f7aa6')} />
+    <rect x={w - 9} width={9} height={h} rx={4} {...FL('#4f7aa6')} />
+    {Array.from({ length: n }, (_, i) => <rect key={i} x={9 + (i * (w - 18)) / n} y={h * 0.35} width={(w - 18) / n} height={h * 0.65} {...FL('#7fa7d9')} />)}
+  </>
+);
 // Sisusta: furniture seen from above, drawn in its unturned box (w×h units); the front faces down.
 const FL = (fill: string) => ({ fill, ...ST });
 const DRAW: Record<Item, (w: number, h: number) => JSX.Element> = {
@@ -415,14 +424,8 @@ const DRAW: Record<Item, (w: number, h: number) => JSX.Element> = {
   ),
   // A bedside table with a lamp on it.
   nightstand: (w, h) => <><rect width={w} height={h} rx={3} {...FL('#b07a42')} /><circle cx={w / 2} cy={h / 2} r={w * 0.26} {...FL('#fff3a0')} /></>,
-  sofa: (w, h) => (
-    <>
-      <rect width={w} height={h * 0.35} rx={4} {...FL('#4f7aa6')} />
-      <rect width={9} height={h} rx={4} {...FL('#4f7aa6')} />
-      <rect x={w - 9} width={9} height={h} rx={4} {...FL('#4f7aa6')} />
-      {[0, 1, 2].map((i) => <rect key={i} x={9 + (i * (w - 18)) / 3} y={h * 0.35} width={(w - 18) / 3} height={h * 0.65} {...FL('#7fa7d9')} />)}
-    </>
-  ),
+  sofa: (w, h) => couch(w, h, 3),
+  loveseat: (w, h) => couch(w, h, 2),
   // A low stand with the screen standing at its back edge.
   tv: (w, h) => <><rect y={h * 0.3} width={w} height={h * 0.7} rx={3} {...FL('#b07a42')} /><rect x={w * 0.1} y={h * 0.12} width={w * 0.8} height={h * 0.28} rx={2} {...FL('#2b2118')} /></>,
   table: (w, h) => <><rect width={w} height={h} rx={6} {...FL('#c98a4b')} />{[0.27, 0.73].map((f) => <circle key={f} cx={w * f} cy={h / 2} r={h * 0.27} {...FL('#fff')} />)}</>,

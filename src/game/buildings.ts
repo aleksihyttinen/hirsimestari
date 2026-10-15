@@ -291,13 +291,13 @@ export const loylyhuone: Building = {
 
 // Sisusta: furniture and fixtures, with their size in grid cells before turning.
 export const ITEM_LABEL: Record<Item, string> = {
-  bed: 'Sänky', nightstand: 'Yöpöytä', sofa: 'Sohva', tv: 'Televisio', table: 'Pöytä', chair: 'Tuoli', coats: 'Naulakko', shoes: 'Kenkähylly',
+  bed: 'Sänky', nightstand: 'Yöpöytä', sofa: 'Sohva', loveseat: 'Sohva', tv: 'Televisio', table: 'Pöytä', chair: 'Tuoli', coats: 'Naulakko', shoes: 'Kenkähylly',
   coffee: 'Sohvapöytä', armchair: 'Nojatuoli', wardrobe: 'Vaatekaappi', dresser: 'Lipasto', plant: 'Viherkasvi',
   bench: 'Penkki', longtable: 'Pirtinpöytä', platform: 'Lauteet', bucket: 'Kiulu',
   stove: 'Liesi', sink: 'Tiskiallas', shower: 'Suihku', toilet: 'WC-istuin', basin: 'Pesuallas', heater: 'Kiuas', kettle: 'Vesipata',
 };
 export const ITEM_SIZE: Record<Item, [number, number]> = {
-  bed: [1, 2], nightstand: [1, 1], sofa: [3, 1], tv: [2, 1], table: [2, 1], chair: [1, 1], coats: [1, 1], shoes: [1, 1],
+  bed: [1, 2], nightstand: [1, 1], sofa: [3, 1], loveseat: [2, 1], tv: [2, 1], table: [2, 1], chair: [1, 1], coats: [1, 1], shoes: [1, 1],
   coffee: [2, 1], armchair: [1, 1], wardrobe: [2, 1], dresser: [1, 1], plant: [1, 1],
   bench: [2, 1], longtable: [2, 1], platform: [2, 1], bucket: [1, 1],
   stove: [1, 1], sink: [1, 1], shower: [1, 1], toilet: [1, 1], basin: [1, 1], heater: [1, 1], kettle: [1, 1],
@@ -327,8 +327,8 @@ export const pihasauna: Building = {
       { id: 'kettle', item: 'kettle', x: 3, y: 0, turn: 0 },
       { id: 'heater', item: 'heater', x: 4, y: 0, turn: 0 },
     ],
-    // The rooms need bench, coats, platform and bucket; a table, chairs and a plant are free extras.
-    pieces: { bench: 1, coats: 1, platform: 1, bucket: 1, table: 1, chair: 2, plant: 1 },
+    // The rooms need bench, coats, platform and bucket; a plant is a free extra.
+    pieces: { bench: 1, coats: 1, platform: 1, bucket: 1, plant: 1 },
     goal: ['dressing', 'sauna'],
     recipes: [{ room: 'dressing', items: ['coats', 'bench'], entry: true, text: 'Penkki ja naulakko siihen huoneeseen, jossa on ulko-ovi.' }, SAUNA],
   },
@@ -361,13 +361,13 @@ export const mokkipohja: Building = {
       { id: 'shower', item: 'shower', x: 0, y: 3, turn: 0 },
       { id: 'heater', item: 'heater', x: 0, y: 4, turn: 0 },
     ],
-    // The rooms need the first eight kinds; a wardrobe, a coat rack and a plant are free extras.
-    pieces: { bed: 1, nightstand: 1, longtable: 1, bench: 2, sofa: 1, armchair: 1, platform: 1, bucket: 1, wardrobe: 1, coats: 1, plant: 1 },
+    // The rooms need the first eight kinds; a coat rack and a plant are free extras.
+    pieces: { bed: 1, nightstand: 1, longtable: 1, bench: 2, loveseat: 1, armchair: 1, platform: 1, bucket: 1, coats: 1, plant: 1 },
     goal: ['bedroom', 'kitchen', 'living', 'sauna'],
     recipes: [
       { room: 'bedroom', beside: ['bed', 'nightstand', 1], text: 'Sänky ja yöpöytä sängyn viereen.' },
       { room: 'kitchen', items: ['stove'], beside: ['longtable', 'bench', 2], text: 'Pirtinpöytä ja kaksi penkkiä pöydän viereen, siihen huoneeseen, jossa on liesi.' },
-      { room: 'living', items: ['sofa', 'armchair'], text: 'Sohva ja nojatuoli samaan huoneeseen.' },
+      { room: 'living', items: ['loveseat', 'armchair'], text: 'Sohva ja nojatuoli samaan huoneeseen.' },
       SAUNA,
     ],
   },
@@ -406,8 +406,8 @@ export const omakotitalo: Building = {
       { id: 'toilet', item: 'toilet', x: 4, y: 0, turn: 0 },
       { id: 'basin', item: 'basin', x: 3, y: 1, turn: 3 },
     ],
-    // The rooms need the first nine kinds; wardrobes, chests of drawers, an armchair and plants are free extras.
-    pieces: { bed: 2, nightstand: 2, sofa: 1, coffee: 1, tv: 1, table: 1, chair: 2, coats: 1, shoes: 1, wardrobe: 2, dresser: 2, armchair: 1, plant: 2 },
+    // The rooms need the first nine kinds; a wardrobe, an armchair and plants are free extras.
+    pieces: { bed: 2, nightstand: 2, sofa: 1, coffee: 1, tv: 1, table: 1, chair: 2, coats: 1, shoes: 1, wardrobe: 1, armchair: 1, plant: 2 },
     goal: ['bedroom', 'bedroom', 'kitchen', 'living', 'hall'],
     recipes: [
       { room: 'bedroom', beside: ['bed', 'nightstand', 1], text: 'Sänky ja yöpöytä sängyn viereen. Taloon tulee kaksi makuuhuonetta.' },

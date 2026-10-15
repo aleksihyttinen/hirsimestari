@@ -8,7 +8,7 @@ export type PieceKind =
 export type Phase = 'build' | 'paint' | 'done';
 
 /** Sisusta: furniture the player places, and the fixtures already in the house. */
-export type Item = 'bed' | 'nightstand' | 'sofa' | 'tv' | 'table' | 'chair' | 'coats' | 'shoes' | 'coffee' | 'armchair' | 'wardrobe' | 'dresser' | 'plant' | 'bench' | 'longtable' | 'platform' | 'bucket' | 'stove' | 'sink' | 'shower' | 'toilet' | 'basin' | 'heater' | 'kettle';
+export type Item = 'bed' | 'nightstand' | 'sofa' | 'loveseat' | 'tv' | 'table' | 'chair' | 'coats' | 'shoes' | 'coffee' | 'armchair' | 'wardrobe' | 'dresser' | 'plant' | 'bench' | 'longtable' | 'platform' | 'bucket' | 'stove' | 'sink' | 'shower' | 'toilet' | 'basin' | 'heater' | 'kettle';
 export type RoomKind = 'bedroom' | 'kitchen' | 'living' | 'hall' | 'dressing' | 'sauna';
 /** A piece on the plan grid: `x,y` is its top-left cell, `turn` quarter turns clockwise (0-3). */
 export interface Furniture {
